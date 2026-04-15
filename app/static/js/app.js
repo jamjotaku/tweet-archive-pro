@@ -138,15 +138,20 @@ const Auth = {
 // Core Functions
 // ----------------------------------------------------
 function toggleBatchMode() {
+    console.log("toggleBatchMode called. Current:", isBatchMode);
     isBatchMode = !isBatchMode;
     selectedIds.clear();
     const toolbar = document.getElementById('batch-toolbar');
     const btn = document.getElementById('toggle-batch-btn');
-    if (toolbar) toolbar.classList.toggle('show', isBatchMode);
+    if (toolbar) {
+        toolbar.classList.toggle('show', isBatchMode);
+        toolbar.style.display = isBatchMode ? 'flex' : 'none'; // Ensure visibility
+    }
     if (btn) btn.classList.toggle('text-x-blue', isBatchMode);
     updateBatchCount();
     renderBookmarks(allBookmarks, totalBookmarks, false);
 }
+window.toggleBatchMode = toggleBatchMode; // Explicitly make it global
 
 function updateBatchCount() {
     const countEl = document.getElementById('selected-count');
