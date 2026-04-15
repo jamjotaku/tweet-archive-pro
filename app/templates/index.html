@@ -21,9 +21,13 @@
                     <ion-icon name="options" class="text-3xl"></ion-icon>
                     <span class="hidden xl:inline" data-i18n="nav_settings">Settings</span>
                 </button>
-                <button id="toggle-batch-btn" onclick="toggleBatchMode()" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max text-left transition-colors">
-                    <ion-icon name="checkbox-outline" class="text-3xl"></ion-icon>
-                    <span class="hidden xl:inline" data-i18n="nav_batch">Selection Mode</span>
+                <button id="toggle-batch-btn" onclick="toggleBatchMode()" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max xl:w-full text-left transition-colors">
+                    <ion-icon name="checkbox-outline" class="text-3xl pointer-events-none"></ion-icon>
+                    <span class="hidden xl:inline pointer-events-none" data-i18n="nav_batch">Selection Mode</span>
+                </button>
+                <button id="toggle-gallery-btn" onclick="toggleViewMode()" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max xl:w-full text-left transition-colors">
+                    <ion-icon name="grid-outline" class="text-3xl pointer-events-none"></ion-icon>
+                    <span class="hidden xl:inline pointer-events-none" data-i18n="nav_gallery">Gallery View</span>
                 </button>
             </nav>
             
@@ -84,10 +88,16 @@
     <!-- Right Sidebar (Desktop) -->
     <aside class="hidden lg:block w-[350px] shrink-0 pl-8 pr-4 py-3 relative">
         <div class="sticky top-4">
-            <div class="bg-x-dark rounded-2xl p-4 mb-4">
-                <h3 class="font-bold text-xl mb-4" data-i18n="side_categories">Categories</h3>
-                <div class="flex flex-col gap-1 text-[15px]" id="categories-list">
-                    <!-- Categories injected dynamically -->
+            <div class="bg-x-dark border border-x-border rounded-2xl p-4 sticky top-4">
+                <h3 class="text-xl font-bold mb-4" data-i18n="side_categories">Categories</h3>
+                <div id="categories-list" class="space-y-1">
+                    <!-- Categories will be injected here -->
+                </div>
+                
+                <!-- Timeline Filter -->
+                <h3 class="text-xl font-bold mt-8 mb-4" data-i18n="side_timeline">Timeline</h3>
+                <div id="timeline-list" class="space-y-1 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                    <!-- Timeline stats will be injected here -->
                 </div>
             </div>
 
@@ -203,18 +213,6 @@
 
             <!-- Tweet View -->
             <div class="mb-6">
-                <h3 class="text-x-text-muted font-bold text-xs uppercase tracking-wide mb-3" data-i18n="set_group_view">Tweet View</h3>
-                
-                <div class="flex items-center justify-between py-2">
-                    <div>
-                        <div class="font-medium" data-i18n="set_compact">Compact View</div>
-                        <div class="text-sm text-x-text-muted" data-i18n="set_compact_desc">Hide heavy widgets, show basic text list.</div>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id="set-compact" class="sr-only peer">
-                        <div class="w-11 h-6 bg-x-border rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-x-blue after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
-                    </label>
-                </div>
 
                 <div class="flex items-center justify-between py-2">
                     <div>

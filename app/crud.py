@@ -36,58 +36,78 @@ def extract_tweet_id(url: str) -> str:
     return match.group(1)
 
 
-def fetch_tweet_metadata(url: str) -> dict:
-    """ツイートURLからメタデータ（著者、本文、画像等）を取得する。"""
-    meta = {"author_name": "", "author_handle": "", "tweet_text": "", "media_url": ""}
+def fetch_tweet_metadata(url: str, fetch_thread: bool = True) -> dict:
+    """ツイートURLからメタデータ（著者、本文、マルチ画像、スレッド）を取得する。"""
+    meta = {"author_name": "", "author_handle": "", "tweet_text": "", "media_url": "", "thread_json": "[]"}
     tweet_id = extract_tweet_id(url)
     
-    # 1. まずは api.vxtwitter.com を試す (JSON APIが扱いやすい)
-    try:
-        vx_res = requests.get(f"https://api.vxtwitter.com/status/{tweet_id}", timeout=5)
-        if vx_res.status_code == 200:
-            data = vx_res.json()
-            if data:
-                meta["author_name"] = data.get("user_name", "")
-                meta["author_handle"] = f"@{data.get('user_screen_name', '')}"
-                meta["tweet_text"] = data.get("text", "")
-                # 画像があれば取得
-                media = data.get("media_extended", [])
-                if media and media[0].get("url"):
-                    meta["media_url"] = media[0]["url"]
-                return meta
-    except Exception:
-        pass
+    def fetch_single(tid):
+        try:
+            res = requests.get(f"https://api.vxtwitter.com/status/{tid}", timeout=5)
+            if res.status_code == 200:
+                return res.json()
+        except Exception:
+            pass
+        return None
 
-    # 2. フォールバック: 公式 oEmbed API
-    try:
-        clean_url = url.replace("x.com", "twitter.com")
-        res = requests.get(
-            f"https://publish.twitter.com/oembed?url={clean_url}&omit_script=true",
-            timeout=5
-        )
-        if res.status_code == 200:
-            data = res.json()
-            meta["author_name"] = data.get("author_name", "")
-            author_url = data.get("author_url", "")
-            if author_url:
-                handle = author_url.rstrip("/").split("/")[-1]
-                meta["author_handle"] = f"@{handle}"
+    # 1. ターゲットのツイートを取得
+    data = fetch_single(tweet_id)
+    if not data:
+        return meta
+
+    meta["author_name"] = data.get("user_name", "")
+    meta["author_handle"] = f"@{data.get('user_screen_name', '')}"
+    meta["tweet_text"] = data.get("text", "")
+    
+    # マルチ画像対応: 全画像URLをカンマ区切りで保存
+    media_list = [m.get("url") for m in data.get("media_extended", []) if m.get("url")]
+    if media_list:
+        meta["media_url"] = ",".join(media_list)
+
+    # 2. スレッド（親ツイート）の取得
+    thread_items = []
+    if fetch_thread:
+        parent_id = data.get("in_reply_to_status_id")
+        # 最大3世代まで親を辿る (簡易版)
+        for _ in range(3):
+            if not parent_id: break
+            p_data = fetch_single(parent_id)
+            if not p_data: break
             
-            html = data.get("html", "")
-            if html:
-                soup = BeautifulSoup(html, "html.parser")
-                blockquote = soup.find("blockquote")
-                if blockquote:
-                    p_tags = blockquote.find_all("p")
-                    if p_tags: meta["tweet_text"] = p_tags[0].get_text()
-                    # メディアURLのヒントを探す
-                    for a in blockquote.find_all("a"):
-                        if "pic.twitter.com" in a.get("href", ""):
-                            meta["media_url"] = a.get("href")
-    except Exception:
-        pass
+            p_media = [m.get("url") for m in p_data.get("media_extended", []) if m.get("url")]
+            thread_items.insert(0, {
+                "id": parent_id,
+                "author_name": p_data.get("user_name"),
+                "author_handle": f"@{p_data.get('user_screen_name')}",
+                "text": p_data.get("text"),
+                "media": ",".join(p_media) if p_media else "",
+                "created_at": p_data.get("date")
+            })
+            parent_id = p_data.get("in_reply_to_status_id")
+            
+    if thread_items:
+        meta["thread_json"] = json.dumps(thread_items, ensure_ascii=False)
     
     return meta
+
+
+def get_bookmark_by_url(db: Session, user_id: int, url: str) -> Bookmark | None:
+    """URLで既存のブックマークを検索（重複チェック用）。"""
+    return db.query(Bookmark).filter(Bookmark.user_id == user_id, Bookmark.url == url).first()
+
+
+def get_timeline_stats(db: Session, user_id: int):
+    """年月別のブックマーク数を集計してタイムラインを生成。"""
+    # SQLite 依存の strftime を使用
+    query = text("""
+        SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count 
+        FROM bookmarks 
+        WHERE user_id = :user_id 
+        GROUP BY month 
+        ORDER BY month DESC
+    """)
+    result = db.execute(query, {"user_id": user_id})
+    return [{"month": row[0], "count": row[1]} for row in result]
 
 
 def sync_bookmark_metadata(db: Session, user_id: int, bookmark_id: int) -> Bookmark | None:
@@ -112,85 +132,74 @@ def sync_bookmark_metadata(db: Session, user_id: int, bookmark_id: int) -> Bookm
     return bookmark
 
 
-def create_bookmark(db: Session, data: BookmarkCreate, user_id: int, auto_fetch: bool = False) -> Bookmark:
-    """ユーザーの新しいブックマークを作成する。"""
-    tweet_id = extract_tweet_id(data.url)
-
-    # 重複チェック (同一ユーザー内でのみチェック)
-    existing = db.query(Bookmark).filter(
-        Bookmark.tweet_id == tweet_id,
-        Bookmark.user_id == user_id
-    ).first()
+def create_bookmark(db: Session, data: BookmarkCreate, user_id: int, auto_fetch: bool = False, fetch_thread: bool = True) -> Bookmark:
+    """ユーザーの新しいブックマークを作成する。重複チェック付き。"""
+    # 1. 重複チェック
+    existing = get_bookmark_by_url(db, user_id, data.url)
     if existing:
-        raise ValueError(f"tweet_id '{tweet_id}' は既に登録されています。")
+        return existing
 
-    # メタデータ取得
-    meta = {"author_name": "", "author_handle": "", "tweet_text": "", "media_url": ""}
+    tweet_id = extract_tweet_id(data.url)
+    meta = {}
     if auto_fetch:
-        meta = fetch_tweet_metadata(data.url)
-        # メモが空なら自動補完
-        if not data.note and meta["author_name"]:
-            data.note = f"By: {meta['author_name']}"
+        meta = fetch_tweet_metadata(data.url, fetch_thread=fetch_thread)
 
-    bookmark = Bookmark(
+    db_bookmark = Bookmark(
         user_id=user_id,
         tweet_id=tweet_id,
         url=data.url,
         category=data.category or "未分類",
         tags=data.tags or "",
         note=data.note or "",
-        author_name=meta["author_name"],
-        author_handle=meta["author_handle"],
-        tweet_text=meta["tweet_text"],
-        media_url=meta["media_url"],
+        author_name=meta.get("author_name", ""),
+        author_handle=meta.get("author_handle", ""),
+        tweet_text=meta.get("tweet_text", ""),
+        media_url=meta.get("media_url", ""),
+        thread_json=meta.get("thread_json", "[]")
     )
-    db.add(bookmark)
+    db.add(db_bookmark)
     db.commit()
-    db.refresh(bookmark)
-    return bookmark
+    db.refresh(db_bookmark)
+    return db_bookmark
 
 
 def get_bookmarks(
-    db: Session,
-    user_id: int,
-    skip: int = 0,
-    limit: int = 50,
+    db: Session, 
+    user_id: int, 
+    skip: int = 0, 
+    limit: int = 20, 
     category: str | None = None,
-) -> tuple[list[Bookmark], int]:
-    """特定のユーザーのブックマーク一覧を取得する。"""
+    month: str | None = None
+):
+    """ユーザーのブックマーク一覧を取得。カテゴリや年月での絞り込みに対応。"""
     query = db.query(Bookmark).filter(Bookmark.user_id == user_id)
-
     if category:
         query = query.filter(Bookmark.category == category)
-
+    if month:
+        # SQLite: strftime('%Y-%m', created_at) = '2024-10'
+        query = query.filter(text("strftime('%Y-%m', created_at) = :m")).params(m=month)
+        
     total = query.count()
-    bookmarks = (
-        query.order_by(Bookmark.created_at.desc())
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    bookmarks = query.order_by(Bookmark.created_at.desc()).offset(skip).limit(limit).all()
     return bookmarks, total
 
 
-def search_bookmarks(db: Session, user_id: int, keyword: str) -> list[Bookmark]:
-    """FTS5全文検索で特定ユーザーのブックマークを検索する。"""
-    result = db.execute(
-        text(
-            """
-            SELECT b.* FROM bookmarks b
-            JOIN bookmarks_fts fts ON b.id = fts.rowid
-            WHERE bookmarks_fts MATCH :keyword AND b.user_id = :user_id
-            ORDER BY rank
-            """
-        ),
-        {"keyword": keyword, "user_id": user_id},
-    )
-    rows = result.fetchall()
-    return [
-        db.query(Bookmark).get(row.id)
-        for row in rows
-    ]
+def search_bookmarks(db: Session, user_id: int, query: str):
+    """FTS5を使用してブックマークを全文検索（本文・著者含む）。"""
+    # 検索語をクリーンアップ
+    query = query.strip().replace('"', '""')
+    if not query:
+        return []
+    
+    fts_query = text("""
+        SELECT b.* FROM bookmarks b
+        JOIN bookmarks_fts f ON b.id = f.rowid
+        WHERE f.bookmarks_fts MATCH :q AND b.user_id = :u
+        ORDER BY rank
+    """)
+    result = db.execute(fts_query, {"q": f"{query}*", "u": user_id})
+    # 辞書形式またはモデルインスタンスに変換
+    return result.fetchall()
 
 
 def update_bookmark(db: Session, user_id: int, bookmark_id: int, data: BookmarkUpdate) -> Bookmark | None:

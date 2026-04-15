@@ -115,32 +115,39 @@ def login_for_access_token(
 # ブックマークエンドポイント (ログイン必須)
 # ──────────────────────────────────────────────
 
-@app.post("/bookmarks", response_model=BookmarkResponse, status_code=201)
+@app.post("/bookmarks", response_model=BookmarkResponse)
 def create_bookmark(
     data: BookmarkCreate,
-    auto_fetch: bool = Query(False, description="メタデータを自動取得するか"),
+    auto_fetch: bool = True,
+    fetch_thread: bool = True,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """ツイートURLを現在のユーザーのDBに保存する。"""
-    try:
-        bookmark = crud.create_bookmark(db, data, user_id=current_user.id, auto_fetch=auto_fetch)
-        return bookmark
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    """新しいブックマークを作成する。"""
+    return crud.create_bookmark(db, data, current_user.id, auto_fetch=auto_fetch, fetch_thread=fetch_thread)
+
+
+@app.get("/bookmarks/stats/timeline")
+def get_timeline_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """ユーザーの保存履歴を年月別に集計して返す。"""
+    return crud.get_timeline_stats(db, current_user.id)
 
 
 @app.get("/bookmarks", response_model=BookmarkListResponse)
-def list_bookmarks(
+def get_bookmarks(
     skip: int = Query(0, ge=0, description="スキップ件数"),
     limit: int = Query(50, ge=1, le=200, description="取得件数（最大200）"),
     category: str | None = Query(None, description="カテゴリでフィルタ"),
+    month: str | None = Query(None, description="年月でフィルタ"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """現在のユーザーの保存されたブックマーク一覧をJSONで返す。"""
     bookmarks, total = crud.get_bookmarks(
-        db, user_id=current_user.id, skip=skip, limit=limit, category=category
+        db, user_id=current_user.id, skip=skip, limit=limit, category=category, month=month
     )
     return BookmarkListResponse(total=total, bookmarks=bookmarks)
 

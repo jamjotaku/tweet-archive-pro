@@ -155,3 +155,79 @@ button:active {
 .compact-mode .tweet-container, .compact-mode .media-preview { display: none !important; }
 .compact-mode .compact-link { display: block !important; }
 .compact-link { display: none; }
+
+/* Image Grid System (1 to 4 images) */
+.media-grid {
+    display: grid;
+    gap: 2px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #2f3336;
+    margin-top: 12px;
+    background: #000;
+}
+.media-grid[data-count="1"] { grid-template-columns: 1fr; }
+.media-grid[data-count="2"] { grid-template-columns: 1fr 1fr; }
+.media-grid[data-count="3"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.media-grid[data-count="3"] .media-item:first-child { grid-row: span 2; }
+.media-grid[data-count="4"] { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+
+.media-item {
+    width: 100%;
+    height: 100%;
+    min-height: 150px;
+    max-height: 400px;
+}
+.media-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+}
+
+/* Thread Styling */
+.thread-connector {
+    width: 2px;
+    background-color: #333639;
+    position: absolute;
+    left: 23px; /* Avatar center - 1px */
+    top: 54px;
+    bottom: 0;
+}
+.thread-item {
+    padding-top: 12px;
+    position: relative;
+    border-bottom: 1px solid #2f3336;
+}
+
+/* Gallery View Mode */
+.gallery-mode #tweets-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1px;
+    background-color: #2f3336;
+    border-left: 1px solid #2f3336;
+}
+.gallery-mode .tweet-card {
+    border-bottom: none;
+    aspect-ratio: 1;
+    overflow: hidden;
+    background-color: #000;
+}
+.gallery-mode .tweet-card:hover {
+    background-color: #080808;
+}
+.gallery-mode .media-preview, .gallery-mode .media-grid {
+    margin-top: 0;
+    border-radius: 0;
+    border: none;
+    height: 100%;
+}
+/* Hide text in gallery mode unless hovered or simplified */
+.gallery-mode .blur-target, .gallery-mode .thread-connector { display: none; }
+
+/* Scrollbar */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #444; }

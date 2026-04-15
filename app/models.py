@@ -40,7 +40,8 @@ class Bookmark(Base):
     author_name = Column(String(256), nullable=True, default="")
     author_handle = Column(String(128), nullable=True, default="")
     tweet_text = Column(Text, nullable=True, default="")
-    media_url = Column(String(1024), nullable=True, default="")
+    media_url = Column(Text, nullable=True, default="") # JSON or comma-separated URLs
+    thread_json = Column(Text, nullable=True, default="[]") # JSON list of {text, media, date}
     created_at = Column(
         DateTime,
         nullable=False,
@@ -53,71 +54,66 @@ class Bookmark(Base):
         return f"<Bookmark(id={self.id}, user_id={self.user_id}, tweet_id='{self.tweet_id}')>"
 
 
+def init_db():
+    """データベースとFTS5テーブルを初期化する。"""
+    Base.metadata.create_all(bind=engine)
+    with engine.connect() as connection:
+        # 自動マイグレーション: 既存のbookmarksテーブルを最新のカラム構成に
+        cursor = connection.execute(text("PRAGMA table_info(bookmarks)"))
+        existing_cols = [row[1] for row in cursor.fetchall()]
+        
+        needed_cols = [
+            ("author_name", "TEXT"), ("author_handle", "TEXT"),
+            ("tweet_text", "TEXT"), ("media_url", "TEXT"),
+            ("thread_json", "TEXT")
+        ]
+        
+        for col, typ in needed_cols:
+            if col not in existing_cols:
+                # すべてのカラムを NULL 許可またはデフォルト値で作成
+                connection.execute(text(f"ALTER TABLE bookmarks ADD COLUMN {col} {typ}"))
+                print(f"Migration: Added column {col} to bookmarks table.")
+        
+        # FTS5テーブルの再構築 (カラム構成が変わるため一度削除)
+        connection.execute(text("DROP TABLE IF EXISTS bookmarks_fts"))
+        create_fts5_table(connection)
+        
+        connection.commit()
+
+
 def create_fts5_table(connection):
-    """FTS5全文検索テーブルを作成する。"""
+    """FTS5検索テーブルと同期トリガーを作成する。"""
     connection.execute(
         text("""
-        CREATE VIRTUAL TABLE IF NOT EXISTS bookmarks_fts
-        USING fts5(
-            user_id UNINDEXED,
-            tweet_id UNINDEXED,
-            category,
-            tags,
-            note,
-            content='bookmarks',
-            content_rowid='id'
+        CREATE VIRTUAL TABLE IF NOT EXISTS bookmarks_fts USING fts5(
+            user_id UNINDEXED, tweet_id UNINDEXED, category, tags, note, author_name, author_handle, tweet_text
         );
         """)
     )
-    # FTS5テーブルの同期用トリガー
+    # FTS5テーブルの同期用トリガー (Insert/Delete/Update)
     connection.execute(
         text("""
         CREATE TRIGGER IF NOT EXISTS bookmarks_ai AFTER INSERT ON bookmarks BEGIN
-            INSERT INTO bookmarks_fts(rowid, user_id, tweet_id, category, tags, note)
-            VALUES (new.id, new.user_id, new.tweet_id, new.category, new.tags, new.note);
+            INSERT INTO bookmarks_fts(rowid, user_id, tweet_id, category, tags, note, author_name, author_handle, tweet_text)
+            VALUES (new.id, new.user_id, new.tweet_id, new.category, new.tags, new.note, new.author_name, new.author_handle, new.tweet_text);
         END;
         """)
     )
     connection.execute(
         text("""
         CREATE TRIGGER IF NOT EXISTS bookmarks_ad AFTER DELETE ON bookmarks BEGIN
-            INSERT INTO bookmarks_fts(bookmarks_fts, rowid, user_id, tweet_id, category, tags, note)
-            VALUES ('delete', old.id, old.user_id, old.tweet_id, old.category, old.tags, old.note);
+            INSERT INTO bookmarks_fts(bookmarks_fts, rowid, user_id, tweet_id, category, tags, note, author_name, author_handle, tweet_text)
+            VALUES ('delete', old.id, old.user_id, old.tweet_id, old.category, old.tags, old.note, old.author_name, old.author_handle, old.tweet_text);
         END;
         """)
     )
     connection.execute(
         text("""
         CREATE TRIGGER IF NOT EXISTS bookmarks_au AFTER UPDATE ON bookmarks BEGIN
-            INSERT INTO bookmarks_fts(bookmarks_fts, rowid, user_id, tweet_id, category, tags, note)
-            VALUES ('delete', old.id, old.user_id, old.tweet_id, old.category, old.tags, old.note);
-            INSERT INTO bookmarks_fts(rowid, user_id, tweet_id, category, tags, note)
-            VALUES (new.id, new.user_id, new.tweet_id, new.category, new.tags, new.note);
+            INSERT INTO bookmarks_fts(bookmarks_fts, rowid, user_id, tweet_id, category, tags, note, author_name, author_handle, tweet_text)
+            VALUES ('delete', old.id, old.user_id, old.tweet_id, old.category, old.tags, old.note, old.author_name, old.author_handle, old.tweet_text);
+            INSERT INTO bookmarks_fts(rowid, user_id, tweet_id, category, tags, note, author_name, author_handle, tweet_text)
+            VALUES (new.id, new.user_id, new.tweet_id, new.category, new.tags, new.note, new.author_name, new.author_handle, new.tweet_text);
         END;
         """)
     )
-
-
-def init_db():
-    """データベースとFTS5テーブルを初期化する。"""
-    Base.metadata.create_all(bind=engine)
-    with engine.connect() as connection:
-        create_fts5_table(connection)
-        
-        # 自動マイグレーション: 既存のbookmarksテーブルにメタデータ用カラムがあるか確認
-        cursor = connection.execute(text("PRAGMA table_info(bookmarks)"))
-        existing_cols = [row[1] for row in cursor.fetchall()]
-        
-        needed_cols = [
-            ("author_name", "TEXT"),
-            ("author_handle", "TEXT"),
-            ("tweet_text", "TEXT"),
-            ("media_url", "TEXT")
-        ]
-        
-        for col, typ in needed_cols:
-            if col not in existing_cols:
-                connection.execute(text(f"ALTER TABLE bookmarks ADD COLUMN {col} {typ} DEFAULT ''"))
-                print(f"Migration: Added column {col} to bookmarks table.")
-        
-        connection.commit()

@@ -79,16 +79,18 @@ class BookmarkResponse(BaseModel):
     author_handle: str | None = ""
     tweet_text: str | None = ""
     media_url: str | None = ""
+    thread_json: str | None = "[]"
     created_at: datetime
 
     model_config = {"from_attributes": True}
 
 
 class BookmarkUpdate(BaseModel):
-    """ブックマーク編集時のリクエストスキーマ。"""
-    category: Optional[str] = None
-    tags: Optional[str] = None
-    note: Optional[str] = None
+    """ブックマーク更新用のスキーマ。"""
+    category: str | None = None
+    tags: str | None = None
+    note: str | None = None
+    thread_json: str | None = None
 
     @field_validator("tags")
     @classmethod
