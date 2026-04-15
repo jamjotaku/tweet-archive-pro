@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TweetArchive Pro{% endblock %}</title>
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'x-black': '#000000',
+                        'x-dark': '#16181c',
+                        'x-border': '#2f3336',
+                        'x-blue': '#1d9bf0',
+                        'x-blue-hover': '#1a8cd8',
+                        'x-text': '#e7e9ea',
+                        'x-text-muted': '#71767b',
+                        'x-error': '#f4212e',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Ionicons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-x-black text-x-text font-sans antialiased min-h-screen overflow-y-scroll">
+    
+    {% block content %}{% endblock %}
+    
+    <!-- トースト通知用コンテナ -->
+    <div id="toast-container" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-3"></div>
+
+    <!-- Twitter (X) 公式ウィジェットスクリプト -->
+    <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+    <!-- アプリケーションロジック -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

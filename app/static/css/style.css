@@ -1,0 +1,107 @@
+/* Custom scrollbar to match X's dark mode */
+::-webkit-scrollbar {
+    width: 14px;
+}
+::-webkit-scrollbar-track {
+    background: #000000;
+}
+::-webkit-scrollbar-thumb {
+    background: #2F3336;
+    border: 4px solid #000000;
+    border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #71767B;
+}
+
+/* Glassmorphism for fixed headers / sidebars */
+.glass {
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+/* Smooth input focus removal for X-like inputs */
+input:focus, textarea:focus {
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* Animation for Toast Notifications */
+@keyframes slideUpFade {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+@keyframes fadeOut {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+.toast-enter {
+    animation: slideUpFade 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.toast-exit {
+    animation: fadeOut 0.3s ease-out forwards;
+}
+
+/* Adjustments for Twitter oEmbed */
+.twitter-tweet {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+/* Ensure the embed container fits well if needed */
+.tweet-container iframe {
+    border-radius: 16px;
+}
+
+/* Base transitions */
+a, button {
+    transition: background-color 0.2s ease, opacity 0.2s ease, transform 0.1s ease;
+}
+button:active {
+    transform: scale(0.97);
+}
+
+/* -------------------------------------
+ * Extensions / Settings Styles
+ * ------------------------------------- */
+
+/* Theme: Dim */
+.theme-dim.bg-x-black,
+.theme-dim .bg-x-black {
+    background-color: #15202b !important;
+}
+.theme-dim .bg-x-dark {
+    background-color: #1e2732 !important;
+}
+.theme-dim .border-x-border {
+    border-color: #38444d !important;
+}
+
+/* Privacy Blur Mode */
+.blur-mode .tweet-container,
+.blur-mode .blur-target {
+    filter: blur(10px) opacity(0.8);
+    transition: filter 0.3s ease, opacity 0.3s ease;
+}
+.blur-mode .tweet-container:hover,
+.blur-mode .blur-target:hover {
+    filter: blur(0px) opacity(1);
+}
+
+/* Compact Mode List */
+.compact-mode .tweet-container {
+    display: none !important;
+}
+.compact-mode .compact-link {
+    display: block !important;
+}
+.compact-link {
+    display: none;
+}

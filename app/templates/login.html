@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Login - TweetArchive Pro{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center relative overflow-hidden">
+    <!-- Main Form Container -->
+    <div class="bg-x-black border border-x-border sm:rounded-2xl w-full sm:w-[600px] h-screen sm:h-auto flex flex-col p-8 sm:p-12 relative z-10 mx-auto">
+        
+        <div class="flex justify-center mb-8">
+            <!-- Icon placeholder for Logo -->
+            <ion-icon name="bookmark" class="text-x-text text-5xl"></ion-icon>
+        </div>
+
+        <h1 class="text-3xl font-bold mb-10 text-center" id="form-title">Log in to Archive</h1>
+
+        <form id="auth-form" class="flex flex-col gap-6 w-full max-w-[380px] mx-auto">
+            <!-- Username Input -->
+            <div class="relative group">
+                <input type="text" id="username" name="username" required autocomplete="username"
+                       class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer focus:outline-none"
+                       placeholder=" ">
+                <label for="username" class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:text-sm peer-focus:text-x-blue">Username</label>
+            </div>
+            
+            <!-- Password Input -->
+            <div class="relative group">
+                <input type="password" id="password" name="password" required autocomplete="current-password"
+                       class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer focus:outline-none"
+                       placeholder=" ">
+                <label for="password" class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:top-2 peer-focus:text-sm peer-focus:text-x-blue">Password</label>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" id="submit-btn" class="w-full bg-x-text text-x-black font-bold py-3.5 rounded-full hover:bg-gray-200 mt-6 text-base tracking-wide">
+                Log in
+            </button>
+            
+            <p class="text-center text-x-text-muted mt-8 mb-2">
+                Don't have an account? 
+                <button type="button" id="toggle-mode-btn" class="text-x-blue hover:underline font-medium ml-1">Sign up</button>
+            </p>
+        </form>
+    </div>
+</div>
+{% endblock %}

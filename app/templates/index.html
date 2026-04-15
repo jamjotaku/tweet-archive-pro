@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}Home - TweetArchive Pro{% endblock %}
+
+{% block content %}
+<div class="flex max-w-7xl mx-auto min-h-screen">
+    
+    <!-- Sidebar / Navigation -->
+    <header class="w-16 sm:w-20 xl:w-64 flex flex-col items-center xl:items-start justify-between py-4 xl:py-6 px-2 xl:px-4 shrink-0 fixed h-screen border-r border-x-border z-20 glass sm:bg-transparent">
+        <div class="flex flex-col items-center xl:items-start gap-4 xl:gap-6 w-full">
+            <a href="/" class="p-3 hover:bg-x-dark rounded-full inline-flex items-center justify-center transition-colors">
+                <ion-icon name="bookmark" class="text-3xl text-x-text"></ion-icon>
+            </a>
+            
+            <nav class="flex flex-col gap-2 w-full items-center xl:items-start">
+                <a href="/" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max">
+                    <ion-icon name="home" class="text-3xl"></ion-icon>
+                    <span class="hidden xl:inline" data-i18n="nav_home">Home</span>
+                </a>
+                <button onclick="openSettingsModal()" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max text-left">
+                    <ion-icon name="options" class="text-3xl"></ion-icon>
+                    <span class="hidden xl:inline" data-i18n="nav_settings">Settings</span>
+                </button>
+            </nav>
+            
+            <button onclick="openModal()" class="bg-x-blue hover:bg-x-blue-hover text-white rounded-full p-3.5 mt-2 xl:px-8 xl:py-3.5 shadow-sm xl:shadow-[0_8px_16px_rgba(29,155,240,0.2)] w-max xl:w-[90%] font-bold text-lg flex items-center justify-center">
+                <ion-icon name="add" class="text-2xl xl:hidden"></ion-icon>
+                <span class="hidden xl:inline" data-i18n="btn_bookmark">Bookmark</span>
+            </button>
+        </div>
+        
+        <!-- User Profile Area -->
+        <button id="logout-btn" class="p-3 hover:bg-x-dark rounded-full flex xl:inline-flex items-center gap-3 w-full xl:w-auto mt-auto justify-center xl:justify-start" title="Logout">
+            <div class="w-10 h-10 rounded-full bg-x-dark border border-x-border flex items-center justify-center shrink-0">
+                <ion-icon name="person" class="text-x-text text-xl"></ion-icon>
+            </div>
+            <div class="hidden xl:flex flex-col items-start truncate text-left">
+                <span class="font-bold text-[15px] leading-tight" id="user-display-name">User</span>
+                <span class="text-x-text-muted text-[15px] truncate max-w-[120px]">@<span id="username-handle">user</span></span>
+            </div>
+            <ion-icon name="log-out-outline" class="hidden xl:block ml-auto text-xl"></ion-icon>
+        </button>
+    </header>
+
+    <!-- Main Timeline -->
+    <main class="flex-1 ml-16 sm:ml-20 xl:ml-64 border-r border-x-border min-h-screen pb-20 w-full max-w-[600px] main-content-area transition-all duration-300">
+        
+        <!-- Header -->
+        <div class="sticky top-0 z-10 glass border-b border-x-border px-4 py-3 flex items-center justify-between cursor-pointer" onclick="window.scrollTo({top:0, behavior:'smooth'})">
+            <h2 class="text-xl font-bold" data-i18n="header_title">Bookmarks</h2>
+        </div>
+        
+        <!-- Search Bar -->
+        <div class="px-4 border-b border-x-border py-2 bg-x-black z-10 sticky top-[53px]">
+            <div class="relative w-full group py-1">
+                <div class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                    <ion-icon name="search" class="text-x-text-muted text-[20px] group-focus-within:text-x-blue transition-colors"></ion-icon>
+                </div>
+                <input type="text" id="search-input" placeholder="Search notes, tags..." data-i18n-placeholder="search_placeholder"
+                       class="w-full bg-x-dark border border-transparent focus:border-x-blue rounded-full py-2.5 pl-14 pr-4 border text-[15px] text-x-text placeholder-x-text-muted outline-none transition-colors">
+            </div>
+        </div>
+
+        <!-- Tweets Stream -->
+        <div id="tweets-container" class="flex flex-col">
+            <div class="py-12 flex justify-center text-x-blue" id="loading-spinner">
+                <ion-icon name="sync" class="animate-spin text-3xl"></ion-icon>
+            </div>
+        </div>
+    </main>
+
+    <!-- Right Sidebar (Desktop) -->
+    <aside class="hidden lg:block w-[350px] shrink-0 pl-8 pr-4 py-3 relative">
+        <div class="sticky top-4">
+            <div class="bg-x-dark rounded-2xl p-4 mb-4">
+                <h3 class="font-bold text-xl mb-4" data-i18n="side_categories">Categories</h3>
+                <div class="flex flex-col gap-1 text-[15px]" id="categories-list">
+                    <!-- Categories injected dynamically -->
+                </div>
+            </div>
+
+            <!-- Export Plugin container -->
+            <div id="plugin-export" class="hidden bg-x-dark rounded-2xl p-4 mb-4">
+                <h3 class="font-bold text-lg mb-2" data-i18n="side_export">Export Data</h3>
+                <p class="text-sm text-x-text-muted mb-4" data-i18n="side_export_desc">Download all your bookmarks.</p>
+                <div class="flex gap-2">
+                    <button onclick="exportData('json')" class="bg-x-border hover:bg-gray-700 flex-1 py-2 rounded-full font-bold text-sm transition">JSON</button>
+                    <button onclick="exportData('csv')" class="bg-x-border hover:bg-gray-700 flex-1 py-2 rounded-full font-bold text-sm transition">CSV</button>
+                </div>
+            </div>
+
+            <!-- Bookmarklet Plugin container -->
+            <div id="plugin-bookmarklet" class="hidden bg-x-dark rounded-2xl p-4 mb-4">
+                <h3 class="font-bold text-lg mb-2" data-i18n="side_bookmarklet">Quick Save</h3>
+                <p class="text-sm text-x-text-muted mb-4" data-i18n="side_bookmarklet_desc">Drag this button to your bookmarks bar to save tweets instantly.</p>
+                <a href="javascript:(function(){window.open('http://localhost:8000/?quick_save='+encodeURIComponent(location.href),'_blank','width=600,height=500');})();" 
+                   class="block text-center border border-x-blue text-x-blue hover:bg-x-blue hover:bg-opacity-10 py-2 rounded-full font-bold text-sm transition"
+                   data-i18n="btn_quick_save">
+                    + Save to Archive
+                </a>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<!-- Add Bookmark Modal -->
+<div id="bookmark-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-[#5b7083] bg-opacity-40" onclick="closeModal()"></div>
+    <div class="bg-x-black rounded-2xl w-full max-w-[600px] flex flex-col relative z-10 shadow-2xl">
+        <div class="flex items-center px-4 py-3 border-b border-x-border">
+            <button type="button" onclick="closeModal()" class="p-2 hover:bg-x-dark rounded-full inline-flex items-center justify-center mr-4 transition-colors">
+                <ion-icon name="close" class="text-xl"></ion-icon>
+            </button>
+            <h2 class="font-bold text-xl" data-i18n="modal_save_title">Save a Tweet</h2>
+        </div>
+        <form id="add-bookmark-form" class="p-4 flex flex-col gap-4">
+            <div class="relative group">
+                <input type="url" id="url" required autocomplete="off" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer focus:outline-none" placeholder=" ">
+                <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_url">Tweet URL *</label>
+            </div>
+            <div class="relative group">
+                <input type="text" id="category" autocomplete="off" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer focus:outline-none" placeholder=" ">
+                <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_category">Category</label>
+            </div>
+            <div class="relative group">
+                <input type="text" id="tags" autocomplete="off" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer focus:outline-none" placeholder=" ">
+                <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_tags">Tags (comma separated)</label>
+            </div>
+            <div class="relative group">
+                <textarea id="note" rows="3" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer resize-none focus:outline-none" placeholder=" "></textarea>
+                <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-6 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_note">Note / Memo</label>
+            </div>
+            <div class="flex justify-end pt-2 border-t border-x-border mt-2 pt-4">
+                <button type="submit" class="bg-x-text text-x-black hover:bg-gray-200 font-bold py-2 px-6 rounded-full transition-colors disabled:opacity-50" id="save-btn" data-i18n="btn_save">
+                    Save
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-modal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-[#5b7083] bg-opacity-40" onclick="closeSettingsModal()"></div>
+    <div class="bg-x-black rounded-2xl w-full max-w-[500px] flex flex-col relative z-10 shadow-2xl overflow-hidden max-h-screen">
+        <div class="flex items-center px-4 py-3 border-b border-x-border">
+            <button type="button" onclick="closeSettingsModal()" class="p-2 hover:bg-x-dark rounded-full inline-flex items-center justify-center mr-4 transition-colors">
+                <ion-icon name="close" class="text-xl"></ion-icon>
+            </button>
+            <h2 class="font-bold text-xl" data-i18n="modal_settings_title">Extensions & Settings</h2>
+        </div>
+        
+        <div class="p-4 overflow-y-auto" id="settings-container">
+            <!-- Global UI -->
+            <div class="mb-6">
+                <h3 class="text-x-text-muted font-bold text-xs uppercase tracking-wide mb-3" data-i18n="set_group_general">General UI</h3>
+                
+                <div class="flex items-center justify-between py-2">
+                    <div>
+                        <div class="font-medium" data-i18n="set_lang">Language</div>
+                        <div class="text-sm text-x-text-muted" data-i18n="set_lang_desc">Switch interface language.</div>
+                    </div>
+                    <select id="set-lang" class="bg-x-dark border border-x-border rounded p-1 text-sm outline-none">
+                        <option value="en">English</option>
+                        <option value="ja">日本語</option>
+                    </select>
+                </div>
+                
+                <div class="flex items-center justify-between py-2">
+                    <div>
+                        <div class="font-medium" data-i18n="set_theme">Theme Mode</div>
+                        <div class="text-sm text-x-text-muted" data-i18n="set_theme_desc">Lights Out or Dim.</div>
+                    </div>
+                    <select id="set-theme" class="bg-x-dark border border-x-border rounded p-1 text-sm outline-none">
+                        <option value="lights-out">Lights Out</option>
+                        <option value="dim">Dim</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center justify-between py-2">
+                    <div>
+                        <div class="font-medium" data-i18n="set_blur">Privacy Blur Mode</div>
+                        <div class="text-sm text-x-text-muted" data-i18n="set_blur_desc">Blur all content until hovered.</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="set-blur" class="sr-only peer">
+                        <div class="w-11 h-6 bg-x-border rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-x-blue after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Tweet View -->
+            <div class="mb-6">
+                <h3 class="text-x-text-muted font-bold text-xs uppercase tracking-wide mb-3" data-i18n="set_group_view">Tweet View</h3>
+                
+                <div class="flex items-center justify-between py-2">
+                    <div>
+                        <div class="font-medium" data-i18n="set_compact">Compact View</div>
+                        <div class="text-sm text-x-text-muted" data-i18n="set_compact_desc">Hide heavy widgets, show basic text list.</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="set-compact" class="sr-only peer">
+                        <div class="w-11 h-6 bg-x-border rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-x-blue after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-between py-2">
+                    <div>
+                        <div class="font-medium" data-i18n="set_media">Hide Media (Data Saver)</div>
+                        <div class="text-sm text-x-text-muted" data-i18n="set_media_desc">Do not load images or videos in cards.</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="set-media" class="sr-only peer">
+                        <div class="w-11 h-6 bg-x-border rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-x-blue after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-between py-2">
+                    <div>
+                        <div class="font-medium" data-i18n="set_thread">Show Conversation</div>
+                        <div class="text-sm text-x-text-muted" data-i18n="set_thread_desc">Show parent tweet if it's a reply.</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="set-thread" class="sr-only peer">
+                        <div class="w-11 h-6 bg-x-border rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-x-blue after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Advanced -->
+            <div>
+                <h3 class="text-x-text-muted font-bold text-xs uppercase tracking-wide mb-3" data-i18n="set_group_advanced">Advanced / Tools</h3>
+                
+                <div class="flex items-center justify-between py-2">
+                    <div>
+                        <div class="font-medium text-x-blue" data-i18n="set_autofetch">Auto-Fetch Metadata</div>
+                        <div class="text-sm text-x-text-muted" data-i18n="set_autofetch_desc">Auto-fill notes with tweet author name.</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="set-autofetch" class="sr-only peer">
+                        <div class="w-11 h-6 bg-x-border rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-x-blue after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-between py-2">
+                    <div>
+                        <div class="font-medium" data-i18n="set_toolsexp">Export Tool Panel</div>
+                        <div class="text-sm text-x-text-muted" data-i18n="set_toolsexp_desc">Show data export options in sidebar.</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="set-toolsexp" class="sr-only peer">
+                        <div class="w-11 h-6 bg-x-border rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-x-blue after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-between py-2">
+                    <div>
+                        <div class="font-medium" data-i18n="set_toolsbm">Bookmarklet Panel</div>
+                        <div class="text-sm text-x-text-muted" data-i18n="set_toolsbm_desc">Show quick save bookmarklet.</div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="set-toolsbm" class="sr-only peer">
+                        <div class="w-11 h-6 bg-x-border rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-x-blue after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    </label>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+{% endblock %}
