@@ -7,8 +7,8 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
-from sqlalchemy import text
-from app.models import Bookmark, User
+from sqlalchemy import text, func, or_
+from app.models import Bookmark, User, BookmarkRelation
 from app.schemas import BookmarkCreate, BookmarkUpdate, UserCreate
 from app.auth import get_password_hash
 
@@ -182,6 +182,56 @@ def get_bookmarks(
     total = query.count()
     bookmarks = query.order_by(Bookmark.created_at.desc()).offset(skip).limit(limit).all()
     return bookmarks, total
+
+
+def get_categories(db: Session, user_id: int):
+    """ユーザーが使用しているカテゴリ一覧をカウント付きで取得。"""
+    result = db.query(
+        Bookmark.category, 
+        func.count(Bookmark.id).label("count")
+    ).filter(Bookmark.user_id == user_id).group_by(Bookmark.category).all()
+    # (None) または 空文字 を '未分類' に正規化してマージ
+    cats = {}
+    for cat, count in result:
+        name = cat or "未分類"
+        cats[name] = cats.get(name, 0) + count
+    return [{"name": k, "count": v} for k, v in cats.items()]
+
+
+def link_bookmarks(db: Session, ids: list[int]):
+    """複数のブックマークIDを相互に関連付ける。"""
+    if len(ids) < 2: return
+    # IDをソートして一意なペアを作る
+    for i in range(len(ids)):
+        for j in range(i + 1, len(ids)):
+            a, b = sorted([ids[i], ids[j]])
+            # 既存チェック
+            exists = db.query(BookmarkRelation).filter(
+                BookmarkRelation.bookmark_a_id == a,
+                BookmarkRelation.bookmark_b_id == b
+            ).first()
+            if not exists:
+                db.add(BookmarkRelation(bookmark_a_id=a, bookmark_b_id=b))
+    db.commit()
+
+
+def get_bookmark_links(db: Session, bookmark_id: int):
+    """指定したブックマークに関連付けられたブックマーク一覧を取得する。"""
+    # a_id または b_id が bookmark_id と一致するものを取得
+    rels = db.query(BookmarkRelation).filter(
+        or_(
+            BookmarkRelation.bookmark_a_id == bookmark_id,
+            BookmarkRelation.bookmark_b_id == bookmark_id
+        )
+    ).all()
+    
+    target_ids = []
+    for r in rels:
+        tid = r.bookmark_b_id if r.bookmark_a_id == bookmark_id else r.bookmark_a_id
+        target_ids.append(tid)
+        
+    if not target_ids: return []
+    return db.query(Bookmark).filter(Bookmark.id.in_(target_ids)).all()
 
 
 def search_bookmarks(db: Session, user_id: int, query: str):

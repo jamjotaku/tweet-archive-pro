@@ -105,3 +105,14 @@ class BookmarkListResponse(BaseModel):
     """ブックマーク一覧のレスポンススキーマ。"""
     total: int
     bookmarks: list[BookmarkResponse]
+
+
+class CategoryResponse(BaseModel):
+    """カテゴリ情報のレスポンススキーマ。"""
+    name: str
+    count: int
+
+
+class BatchLinkRequest(BaseModel):
+    """一括リンク用リクエストスキーマ。"""
+    ids: list[int]

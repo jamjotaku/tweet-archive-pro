@@ -20,7 +20,7 @@ import requests
 
 from app.database import get_db
 from app.models import init_db, User
-from app.schemas import BookmarkCreate, BookmarkResponse, BookmarkListResponse, BookmarkUpdate, UserCreate, UserResponse, Token
+from app.schemas import BookmarkCreate, BookmarkResponse, BookmarkListResponse, BookmarkUpdate, UserCreate, UserResponse, Token, CategoryResponse, BatchLinkRequest
 from app import crud
 from app.auth import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, verify_password
 from app.dependencies import get_current_user
@@ -150,6 +150,36 @@ def get_bookmarks(
         db, user_id=current_user.id, skip=skip, limit=limit, category=category, month=month
     )
     return BookmarkListResponse(total=total, bookmarks=bookmarks)
+
+
+@app.get("/bookmarks/categories", response_model=list[CategoryResponse])
+def get_categories(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """ユーザーが使用しているカテゴリ一覧を取得。"""
+    return crud.get_categories(db, current_user.id)
+
+
+@app.get("/bookmarks/{bookmark_id}/links", response_model=list[BookmarkResponse])
+def get_bookmark_links(
+    bookmark_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """特定のブックマークに関連付けられたブックマーク一覧を取得。"""
+    return crud.get_bookmark_links(db, bookmark_id)
+
+
+@app.post("/bookmarks/batch/link")
+def batch_link_bookmarks(
+    data: BatchLinkRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """複数のブックマークを一括で相互に関連付ける。"""
+    crud.link_bookmarks(db, data.ids)
+    return {"message": "Bookmarks linked successfully"}
 
 
 @app.get("/bookmarks/search", response_model=list[BookmarkResponse])

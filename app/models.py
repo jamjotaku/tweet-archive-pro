@@ -54,6 +54,14 @@ class Bookmark(Base):
         return f"<Bookmark(id={self.id}, user_id={self.user_id}, tweet_id='{self.tweet_id}')>"
 
 
+class BookmarkRelation(Base):
+    """ブックマーク同士の関連付けを保存する中間テーブル。"""
+    __tablename__ = "bookmark_relations"
+
+    bookmark_a_id = Column(Integer, ForeignKey("bookmarks.id", ondelete="CASCADE"), primary_key=True)
+    bookmark_b_id = Column(Integer, ForeignKey("bookmarks.id", ondelete="CASCADE"), primary_key=True)
+
+
 def init_db():
     """データベースとFTS5テーブルを初期化する。"""
     Base.metadata.create_all(bind=engine)

@@ -62,16 +62,23 @@ const i18n = {
         set_compact: "Compact Mode", set_thread: "Show Thread (Unroll)", set_media: "Hide Media",
         no_bookmarks: "No bookmarks found", btn_batch_sync: "Sync", btn_batch_delete: "Delete",
         selected_items: "selected", confirm_batch_delete: "Delete selected items?",
+        btn_batch_link: 'Link', related_title: 'Related bookmarks:'
     },
     ja: {
         nav_home: "ホーム", nav_settings: "設定", nav_batch: "一括選択", nav_gallery: "ギャラリー",
         header_title: "保存済みツイート", search_placeholder: "本文、著者、タグで検索...",
-        side_categories: "カテゴリ", side_timeline: "タイムライン", side_export: "データ出力",
+        side_categories: 'カテゴリ',
+        side_timeline: 'タイムライン',
+        side_export: 'エクスポート',
+        side_export_desc: '全データをダウンロード',
+        side_bookmarklet: 'ブックマークレット',
+        side_bookmarklet_desc: 'ボタンをブックマークバーにドラッグして、ツイートを即座に保存。',
         modal_save_title: "ツイートを保存", btn_save: "保存する",
         set_group_general: "共通 UI", set_lang: "言語", set_group_view: "表示モード",
         set_compact: "リスト表示", set_thread: "スレッド展開", set_media: "メディア非表示",
-        no_bookmarks: "データが見つかりません", btn_batch_sync: "同期", btn_batch_delete: "削除",
+        no_bookmarks: '保存されたブックマークがありません。', btn_batch_sync: "同期", btn_batch_delete: "削除",
         selected_items: "件選択中", confirm_batch_delete: "選択したアイテムを削除しますか？",
+        btn_batch_link: 'リンク', related_title: '関連ブックマーク:'
     }
 };
 
@@ -197,9 +204,10 @@ function renderMedia(urlStr) {
     return html;
 }
 
-function buildCard(bm) {
+async function buildCard(bm) {
     const wrapper = document.createElement('article');
     wrapper.className = `tweet-card border-b border-x-border relative group cursor-pointer flex flex-col`;
+    wrapper.dataset.id = bm.id;
     
     // Main Body Wrapper (to handle thread line)
     const bodyWrapper = document.createElement('div');
@@ -217,7 +225,6 @@ function buildCard(bm) {
         }
     };
 
-    // 1. Batch Checkbox
     if (isBatchMode) {
         const checkArea = document.createElement('div');
         checkArea.className = 'pl-4 pt-4 flex flex-col items-center z-10';
@@ -238,34 +245,6 @@ function buildCard(bm) {
     const contentArea = document.createElement('div');
     contentArea.className = 'flex-1 p-4 flex gap-3 min-w-0';
 
-    // 2. Thread Context (Rendered before the main tweet)
-    let threadHtml = '';
-    const threadData = JSON.parse(bm.thread_json || '[]');
-    if (appSettings.showThread && threadData.length > 0 && !isGalleryMode) {
-        const line = document.createElement('div');
-        line.className = 'thread-connector';
-        contentArea.appendChild(line);
-
-        threadData.forEach(pt => {
-            threadHtml += `
-                <div class="thread-item flex gap-3 mb-4">
-                    <div class="shrink-0">
-                        <div class="w-10 h-10 rounded-full avatar-placeholder flex items-center justify-center text-xs font-bold text-white">${(pt.author_name || 'U').charAt(0)}</div>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center gap-1 text-sm">
-                            <span class="font-bold truncate">${pt.author_name}</span>
-                            <span class="text-x-text-muted truncate">${pt.author_handle}</span>
-                        </div>
-                        <div class="text-[14px] leading-tight text-x-text mt-1 opacity-80">${pt.text}</div>
-                        ${renderMedia(pt.media)}
-                    </div>
-                </div>
-            `;
-        });
-    }
-
-    // 3. Main Tweet
     const avatarCol = document.createElement('div');
     avatarCol.className = 'shrink-0 z-10';
     avatarCol.innerHTML = `<div class="w-12 h-12 rounded-full avatar-placeholder flex items-center justify-center text-white font-bold text-lg">${(bm.author_name || 'T').charAt(0).toUpperCase()}</div>`;
@@ -277,22 +256,81 @@ function buildCard(bm) {
     hRow.className = 'flex items-center gap-1 mb-0.5 flex-wrap';
     const authorName = bm.author_name || (bm.url.split('/')[2] || 'Tweet');
     const dateStr = new Date(bm.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    hRow.innerHTML = `<span class="font-bold text-[15px] hover:underline truncate max-w-[150px]">${authorName}</span>
-                      <span class="text-x-text-muted text-[15px] truncate max-w-[100px]">${bm.author_handle || '@user'}</span>
-                      <span class="text-x-text-muted text-[15px]">·</span>
-                      <span class="text-x-text-muted text-[15px] hover:underline">${dateStr}</span>`;
-
-    const bodyText = (bm.tweet_text && !appSettings.compactMode) ? `<div class="text-[15px] leading-relaxed break-words whitespace-pre-wrap blur-target mb-2">${bm.tweet_text}</div>` : '';
-    const mediaHtml = renderMedia(bm.media_url);
-    const noteHtml = bm.note ? `<div class="mt-3 text-sm text-x-text-muted border-l-2 border-x-blue pl-3 py-0.5 italic">${bm.note}</div>` : '';
-    
+    hRow.innerHTML = `
+        <span class="font-bold text-[15px] hover:underline truncate max-w-[150px]">${authorName}</span>
+        <span class="text-x-text-muted text-[15px]">@${bm.author_handle || 'user'} · ${dateStr}</span>
+        ${bm.category && bm.category !== '未分類' ? `<span class="ml-auto bg-x-blue/10 text-x-blue text-[10px] px-2 py-0.5 rounded-full font-bold uppercase transition hover:bg-x-blue/20" onclick="event.stopPropagation(); applyCategoryFilter('${bm.category}')">${bm.category}</span>` : ''}
+    `;
     rightCol.appendChild(hRow);
-    if (threadHtml && !appSettings.compactMode) {
-        const tBox = document.createElement('div');
-        tBox.innerHTML = threadHtml;
-        rightCol.appendChild(tBox);
+
+    const txt = document.createElement('div');
+    txt.className = 'text-[15px] leading-normal text-x-text mt-1 break-words';
+    txt.innerText = bm.tweet_text || '';
+    rightCol.appendChild(txt);
+
+    if (bm.tags) {
+        const tagBox = document.createElement('div');
+        tagBox.className = 'flex flex-wrap gap-1 mt-2';
+        bm.tags.split(',').forEach(tag => {
+            if (!tag) return;
+            const tSpan = document.createElement('span');
+            tSpan.className = 'text-x-text-muted text-[12px] hover:text-x-blue transition cursor-pointer';
+            tSpan.innerText = `#${tag}`;
+            tSpan.onclick = (e) => {
+                e.stopPropagation();
+                document.getElementById('search-input').value = tag;
+                document.getElementById('search-input').dispatchEvent(new Event('input'));
+            };
+            tagBox.appendChild(tSpan);
+        });
+        rightCol.appendChild(tagBox);
     }
-    rightCol.innerHTML += bodyText + mediaHtml + noteHtml;
+    
+    const mediaHtml = renderMedia(bm.media_url);
+    if (mediaHtml) {
+        const mDiv = document.createElement('div');
+        mDiv.innerHTML = mediaHtml;
+        rightCol.appendChild(mDiv);
+    }
+
+    if (bm.note) {
+        const noteBox = document.createElement('div');
+        noteBox.className = 'mt-3 p-3 bg-x-dark border border-x-border rounded-xl text-sm italic text-x-text-muted opacity-80';
+        noteBox.innerText = bm.note;
+        rightCol.appendChild(noteBox);
+    }
+
+    // Related Bookmarks Section
+    try {
+        const linksRes = await Auth.request(`/bookmarks/${bm.id}/links`);
+        if (linksRes.ok) {
+            const links = await linksRes.json();
+            if (links.length > 0) {
+                const linkBox = document.createElement('div');
+                linkBox.className = 'mt-3 pt-2 border-t border-x-border/30 flex flex-col gap-1';
+                linkBox.innerHTML = `<span class="text-[10px] font-bold text-x-text-muted uppercase tracking-wider">${t('related_title')}</span>`;
+                links.forEach(l => {
+                    const lA = document.createElement('a');
+                    lA.className = 'text-x-blue text-xs hover:underline flex items-center gap-1';
+                    lA.innerHTML = `<ion-icon name="link"></ion-icon> ${l.author_name || 'Tweet'}: ${l.tweet_text ? l.tweet_text.substring(0, 30) + '...' : l.url.substring(0, 30)}`;
+                    lA.onclick = (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        const target = document.querySelector(`article[data-id="${l.id}"]`);
+                        if (target) {
+                            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            target.classList.add('bg-x-blue/10');
+                            setTimeout(() => target.classList.remove('bg-x-blue/10'), 2000);
+                        } else {
+                            window.open(l.url, '_blank');
+                        }
+                    };
+                    linkBox.appendChild(lA);
+                });
+                rightCol.appendChild(linkBox);
+            }
+        }
+    } catch(e){}
 
     contentArea.appendChild(avatarCol);
     contentArea.appendChild(rightCol);
@@ -301,7 +339,7 @@ function buildCard(bm) {
     return wrapper;
 }
 
-function renderBookmarks(bookmarks, total, isSearch = false) {
+async function renderBookmarks(bookmarks, total, isSearch = false) {
     const container = document.getElementById('tweets-container');
     if (!container) return;
     container.innerHTML = '';
@@ -309,7 +347,11 @@ function renderBookmarks(bookmarks, total, isSearch = false) {
         container.innerHTML = `<div class="py-20 text-center text-x-text-muted flex flex-col items-center gap-4"><p class="text-xl font-bold">${t('no_bookmarks')}</p></div>`;
         return;
     }
-    bookmarks.forEach(bm => container.appendChild(buildCard(bm)));
+    // buildCard is now async, so we must await all of them
+    for (const bm of bookmarks) {
+        const card = await buildCard(bm);
+        container.appendChild(card);
+    }
 }
 
 // ----------------------------------------------------
@@ -318,14 +360,45 @@ function renderBookmarks(bookmarks, total, isSearch = false) {
 async function fetchBookmarks() {
     if (isLoading) return; isLoading = true;
     try {
-        const res = await Auth.request(`/bookmarks?skip=${currentPage * PAGE_SIZE}&limit=${PAGE_SIZE}`);
+        let url = `/bookmarks?skip=${currentPage * PAGE_SIZE}&limit=${PAGE_SIZE}`;
+        if (currentFilter.type === 'category') url += `&category=${encodeURIComponent(currentFilter.value)}`;
+        if (currentFilter.type === 'month') url += `&month=${encodeURIComponent(currentFilter.value)}`;
+        
+        const res = await Auth.request(url);
         const data = await res.json();
         totalBookmarks = data.total;
         allBookmarks = currentPage === 0 ? data.bookmarks : [...allBookmarks, ...data.bookmarks];
         renderBookmarks(allBookmarks, totalBookmarks);
         fetchTimelineStats();
+        fetchCategories();
     } finally { isLoading = false; }
 }
+
+async function fetchCategories() {
+    try {
+        const res = await Auth.request('/bookmarks/categories');
+        const data = await res.json();
+        const box = document.getElementById('categories-list');
+        if (!box) return;
+        box.innerHTML = data.map(cat => `
+            <div class="flex justify-between items-center py-2 px-3 hover:bg-x-dark rounded-lg cursor-pointer transition text-[15px] ${currentFilter.type === 'category' && currentFilter.value === cat.name ? 'text-x-blue bg-x-dark/50' : ''}" 
+                 onclick="applyCategoryFilter('${cat.name}')">
+                <span class="font-medium">${cat.name}</span>
+                <span class="bg-x-border px-2 py-0.5 rounded-full text-[10px]">${cat.count}</span>
+            </div>
+        `).join('');
+    } catch(e){}
+}
+
+window.applyCategoryFilter = (cat) => {
+    if (currentFilter.type === 'category' && currentFilter.value === cat) {
+        currentFilter = { type: null, value: null };
+    } else {
+        currentFilter = { type: 'category', value: cat };
+    }
+    currentPage = 0;
+    fetchBookmarks();
+};
 
 async function fetchTimelineStats() {
     try {
@@ -334,8 +407,8 @@ async function fetchTimelineStats() {
         const box = document.getElementById('timeline-list');
         if (!box) return;
         box.innerHTML = data.map(item => `
-            <div class="flex justify-between items-center py-2 px-3 hover:bg-x-dark rounded-lg cursor-pointer transition text-sm" 
-                 onclick="document.getElementById('search-input').value='${item.month}'; document.getElementById('search-input').dispatchEvent(new Event('input'))">
+            <div class="flex justify-between items-center py-2 px-3 hover:bg-x-dark rounded-lg cursor-pointer transition text-sm ${currentFilter.type === 'month' && currentFilter.value === item.month ? 'text-x-blue bg-x-dark/50' : ''}" 
+                 onclick="applyMonthFilter('${item.month}')">
                 <span class="font-medium">${item.month}</span>
                 <span class="bg-x-border px-2 py-0.5 rounded-full text-[10px]">${item.count}</span>
             </div>
@@ -343,15 +416,43 @@ async function fetchTimelineStats() {
     } catch(e){}
 }
 
+window.applyMonthFilter = (month) => {
+    if (currentFilter.type === 'month' && currentFilter.value === month) {
+        currentFilter = { type: null, value: null };
+    } else {
+        currentFilter = { type: 'month', value: month };
+    }
+    currentPage = 0;
+    fetchBookmarks();
+};
+
+window.batchLink = async () => {
+    if (selectedIds.size < 2) {
+        showToast(t('select_at_least_two'), 'error');
+        return;
+    }
+    const res = await Auth.request('/bookmarks/batch/link', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ ids: Array.from(selectedIds) })
+    });
+    if (res.ok) {
+        showToast(t('bookmarks_linked'), 'success');
+        toggleBatchMode();
+        fetchBookmarks();
+    }
+};
+
 // ----------------------------------------------------
 // Init & Modals
 // ----------------------------------------------------
 window.openModal = () => {
     document.getElementById('url').value = '';
-    document.getElementById('save-modal').classList.remove('hidden');
+    // ID in index.html is bookmark-modal
+    document.getElementById('bookmark-modal').classList.remove('hidden');
 };
 window.closeModal = () => {
-    document.getElementById('save-modal').classList.add('hidden');
+    document.getElementById('bookmark-modal').classList.add('hidden');
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -391,6 +492,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.ok) { window.closeModal(); fetchBookmarks(); fetchTimelineStats(); }
             btn.disabled = false; btn.innerText = t('btn_save');
         });
+
+        // Logout
+        document.getElementById('logout-btn')?.addEventListener('click', () => {
+            Auth.logout();
+        });
+
+        // User Profile Info
+        Auth.request('/users/me').then(r => r.json()).then(user => {
+            if (user.username) {
+                document.getElementById('user-display-name').innerText = user.username;
+                document.getElementById('username-handle').innerText = user.username.toLowerCase();
+            }
+        }).catch(() => {});
 
         window.openSettingsModal = () => {
             document.getElementById('set-lang').value = appSettings.lang;

@@ -61,6 +61,10 @@
             <div id="batch-toolbar" class="absolute inset-0 bg-x-black flex items-center px-4 gap-4 -translate-y-full transition-transform duration-300">
                 <button onclick="toggleBatchMode()" class="p-2 hover:bg-x-dark rounded-full"><ion-icon name="close" class="text-xl"></ion-icon></button>
                 <span id="selected-count" class="font-bold flex-1 text-[15px]">0 selected</span>
+                <button onclick="batchLink()" class="text-x-text font-bold px-4 py-1.5 hover:bg-x-border rounded-full transition flex items-center gap-2">
+                    <ion-icon name="link-outline"></ion-icon>
+                    <span data-i18n="btn_batch_link">Link</span>
+                </button>
                 <button onclick="batchSync()" class="text-x-blue font-bold px-4 py-1.5 hover:bg-x-blue hover:bg-opacity-10 rounded-full transition" data-i18n="btn_batch_sync">Sync All</button>
                 <button onclick="batchDelete()" class="text-red-500 font-bold px-4 py-1.5 hover:bg-red-500 hover:bg-opacity-10 rounded-full transition" data-i18n="btn_batch_delete">Delete</button>
             </div>
