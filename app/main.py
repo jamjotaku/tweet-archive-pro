@@ -20,7 +20,7 @@ import requests
 
 from app.database import get_db
 from app.models import init_db, User
-from app.schemas import BookmarkCreate, BookmarkResponse, BookmarkListResponse, UserCreate, UserResponse, Token
+from app.schemas import BookmarkCreate, BookmarkResponse, BookmarkListResponse, BookmarkUpdate, UserCreate, UserResponse, Token
 from app import crud
 from app.auth import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, verify_password
 from app.dependencies import get_current_user
@@ -123,18 +123,8 @@ def create_bookmark(
     db: Session = Depends(get_db),
 ):
     """ツイートURLを現在のユーザーのDBに保存する。"""
-    if auto_fetch and not data.note:
-        try:
-            res = requests.get(f"https://publish.twitter.com/oembed?url={data.url}", timeout=5)
-            if res.status_code == 200:
-                oembed = res.json()
-                author = oembed.get("author_name", "")
-                data.note = f"By: {author}"
-        except Exception:
-            pass
-
     try:
-        bookmark = crud.create_bookmark(db, data, user_id=current_user.id)
+        bookmark = crud.create_bookmark(db, data, user_id=current_user.id, auto_fetch=auto_fetch)
         return bookmark
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -188,6 +178,33 @@ def export_bookmarks(
             headers={"Content-Disposition": "attachment; filename=bookmarks.csv"}
         )
     return bookmarks
+
+
+@app.patch("/bookmarks/{bookmark_id}", response_model=BookmarkResponse)
+def update_bookmark(
+    bookmark_id: int,
+    data: BookmarkUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """現在のユーザーのブックマークを編集する。"""
+    bookmark = crud.update_bookmark(db, current_user.id, bookmark_id, data)
+    if not bookmark:
+        raise HTTPException(status_code=404, detail="ブックマークが見つかりません。")
+    return bookmark
+
+
+@app.post("/bookmarks/{bookmark_id}/sync", response_model=BookmarkResponse)
+def sync_bookmark(
+    bookmark_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """外部APIからメタデータを再取得してブックマークを最新の状態にする。"""
+    bookmark = crud.sync_bookmark_metadata(db, current_user.id, bookmark_id)
+    if not bookmark:
+        raise HTTPException(status_code=404, detail="ブックマークが見つかりません、または同期に失敗しました。")
+    return bookmark
 
 
 @app.delete("/bookmarks/{bookmark_id}", status_code=204)

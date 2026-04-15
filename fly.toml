@@ -1,0 +1,27 @@
+# fly.toml app configuration file generated for tweet-archive-pro
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = "tweet-archive-pro" # 必要に応じて他と被らない名前に変更してください (例: tweet-archive-pro-YOURNAME)
+primary_region = "nrt"    # 東京リージョン
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  TZ = "Asia/Tokyo"
+  # SECRET_KEY は後ほど secrets コマンドで設定します
+
+[mounts]
+  # SQLiteデータベースを永続化するためのボリュームマウント設定
+  source = "sqlite_data"
+  destination = "/app/data"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true    # アクセスが無い時は自動でスリープし、課金を抑えます
+  auto_start_machines = true   # アクセスされると自動で起動します
+  min_machines_running = 0     # 0台までスケールダウンを許可
+  processes = ["app"]

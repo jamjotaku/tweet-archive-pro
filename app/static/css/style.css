@@ -68,40 +68,90 @@ button:active {
     transform: scale(0.97);
 }
 
-/* -------------------------------------
- * Extensions / Settings Styles
- * ------------------------------------- */
-
-/* Theme: Dim */
-.theme-dim.bg-x-black,
-.theme-dim .bg-x-black {
-    background-color: #15202b !important;
+/* X-like Card Layout Improvements */
+.tweet-card {
+    transition: background-color 0.2s;
 }
-.theme-dim .bg-x-dark {
-    background-color: #1e2732 !important;
-}
-.theme-dim .border-x-border {
-    border-color: #38444d !important;
+.tweet-card:hover {
+    background-color: rgba(255, 255, 255, 0.03);
 }
 
-/* Privacy Blur Mode */
-.blur-mode .tweet-container,
-.blur-mode .blur-target {
-    filter: blur(10px) opacity(0.8);
+/* Media Preview Card */
+.media-preview {
+    margin-top: 12px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #2f3336;
+    background: #000;
+}
+.media-preview img {
+    width: 100%;
+    height: auto;
+    max-height: 500px;
+    object-fit: cover;
+    display: block;
+}
+
+/* Checkbox for Batch Mode */
+.batch-checkbox {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    border: 2px solid #2f3336;
+    appearance: none;
+    outline: none;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s;
+}
+.batch-checkbox:checked {
+    background-color: #1d9bf0;
+    border-color: #1d9bf0;
+}
+.batch-checkbox:checked::after {
+    content: '\2713';
+    color: white;
+    font-size: 14px;
+    position: absolute;
+    top: -2px;
+    left: 2px;
+}
+
+/* Batch Toolbar */
+#batch-toolbar {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    background-color: #000;
+    transform: translateY(-100%);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease-out;
+}
+#batch-toolbar.show {
+    transform: translateY(0);
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Avatar Placeholder Gradient */
+.avatar-placeholder {
+    background: linear-gradient(135deg, #1d9bf0 0%, #005a9c 100%);
+}
+
+/* Extensions / Settings Styles */
+.theme-dim.bg-x-black, .theme-dim .bg-x-black { background-color: #15202b !important; }
+.theme-dim .bg-x-dark { background-color: #1e2732 !important; }
+.theme-dim .border-x-border { border-color: #38444d !important; }
+
+.blur-mode .tweet-container, .blur-mode .blur-target, .blur-mode .media-preview {
+    filter: blur(14px) opacity(0.8);
     transition: filter 0.3s ease, opacity 0.3s ease;
 }
-.blur-mode .tweet-container:hover,
-.blur-mode .blur-target:hover {
+.blur-mode .tweet-container:hover, .blur-mode .blur-target:hover, .blur-mode .media-preview:hover {
     filter: blur(0px) opacity(1);
 }
 
-/* Compact Mode List */
-.compact-mode .tweet-container {
-    display: none !important;
-}
-.compact-mode .compact-link {
-    display: block !important;
-}
-.compact-link {
-    display: none;
-}
+.compact-mode .tweet-container, .compact-mode .media-preview { display: none !important; }
+.compact-mode .compact-link { display: block !important; }
+.compact-link { display: none; }

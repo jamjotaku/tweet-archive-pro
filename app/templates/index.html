@@ -17,9 +17,13 @@
                     <ion-icon name="home" class="text-3xl"></ion-icon>
                     <span class="hidden xl:inline" data-i18n="nav_home">Home</span>
                 </a>
-                <button onclick="openSettingsModal()" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max text-left">
+                <button onclick="openSettingsModal()" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max text-left transition-colors">
                     <ion-icon name="options" class="text-3xl"></ion-icon>
                     <span class="hidden xl:inline" data-i18n="nav_settings">Settings</span>
+                </button>
+                <button id="toggle-batch-btn" onclick="toggleBatchMode()" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max text-left transition-colors">
+                    <ion-icon name="checkbox-outline" class="text-3xl"></ion-icon>
+                    <span class="hidden xl:inline" data-i18n="nav_batch">Selection Mode</span>
                 </button>
             </nav>
             
@@ -46,8 +50,16 @@
     <main class="flex-1 ml-16 sm:ml-20 xl:ml-64 border-r border-x-border min-h-screen pb-20 w-full max-w-[600px] main-content-area transition-all duration-300">
         
         <!-- Header -->
-        <div class="sticky top-0 z-10 glass border-b border-x-border px-4 py-3 flex items-center justify-between cursor-pointer" onclick="window.scrollTo({top:0, behavior:'smooth'})">
+        <div class="sticky top-0 z-20 glass border-b border-x-border px-4 py-3 flex items-center justify-between cursor-pointer overflow-hidden" onclick="window.scrollTo({top:0, behavior:'smooth'})">
             <h2 class="text-xl font-bold" data-i18n="header_title">Bookmarks</h2>
+            
+            <!-- Batch Toolbar (Slide in) -->
+            <div id="batch-toolbar" class="absolute inset-0 bg-x-black flex items-center px-4 gap-4 -translate-y-full transition-transform duration-300">
+                <button onclick="toggleBatchMode()" class="p-2 hover:bg-x-dark rounded-full"><ion-icon name="close" class="text-xl"></ion-icon></button>
+                <span id="selected-count" class="font-bold flex-1 text-[15px]">0 selected</span>
+                <button onclick="batchSync()" class="text-x-blue font-bold px-4 py-1.5 hover:bg-x-blue hover:bg-opacity-10 rounded-full transition" data-i18n="btn_batch_sync">Sync All</button>
+                <button onclick="batchDelete()" class="text-red-500 font-bold px-4 py-1.5 hover:bg-red-500 hover:bg-opacity-10 rounded-full transition" data-i18n="btn_batch_delete">Delete</button>
+            </div>
         </div>
         
         <!-- Search Bar -->
@@ -266,6 +278,38 @@
             </div>
             
         </div>
+    </div>
+</div>
+
+<!-- Edit Bookmark Modal -->
+<div id="edit-modal" class="fixed inset-0 z-[70] hidden flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-[#5b7083] bg-opacity-40" onclick="closeEditModal()"></div>
+    <div class="bg-x-black rounded-2xl w-full max-w-[500px] flex flex-col relative z-10 shadow-2xl">
+        <div class="flex items-center px-4 py-3 border-b border-x-border">
+            <button type="button" onclick="closeEditModal()" class="p-2 hover:bg-x-dark rounded-full inline-flex items-center justify-center mr-4 transition-colors">
+                <ion-icon name="close" class="text-xl"></ion-icon>
+            </button>
+            <h2 class="font-bold text-xl" data-i18n="edit_modal_title">Edit Bookmark</h2>
+        </div>
+        <form id="edit-bookmark-form" class="p-4 flex flex-col gap-4">
+            <div class="relative group">
+                <input type="text" id="edit-category" autocomplete="off" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer focus:outline-none" placeholder=" ">
+                <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_category">Category</label>
+            </div>
+            <div class="relative group">
+                <input type="text" id="edit-tags" autocomplete="off" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer focus:outline-none" placeholder=" ">
+                <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_tags">Tags (comma separated)</label>
+            </div>
+            <div class="relative group">
+                <textarea id="edit-note" rows="4" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer resize-none focus:outline-none" placeholder=" "></textarea>
+                <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-6 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_note">Note / Memo</label>
+            </div>
+            <div class="flex justify-end border-t border-x-border pt-4">
+                <button type="submit" id="update-btn" class="bg-x-blue hover:bg-x-blue-hover text-white font-bold py-2 px-6 rounded-full transition-colors disabled:opacity-50" data-i18n="btn_update">
+                    Update
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 

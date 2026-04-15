@@ -1,0 +1,17 @@
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# ローカルのデータベースはコンテナ内にコピーしない（Volumeを使うため）
+data/*.db
+data/*.sqlite
+data/*.db-shm
+data/*.db-wal
+
+.env
+.git
+.gitignore
+.docker/

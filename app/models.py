@@ -36,6 +36,11 @@ class Bookmark(Base):
     category = Column(String(128), nullable=True, default="未分類")
     tags = Column(String(512), nullable=True, default="")
     note = Column(Text, nullable=True, default="")
+    # oEmbed メタデータ (自前カード表示用)
+    author_name = Column(String(256), nullable=True, default="")
+    author_handle = Column(String(128), nullable=True, default="")
+    tweet_text = Column(Text, nullable=True, default="")
+    media_url = Column(String(1024), nullable=True, default="")
     created_at = Column(
         DateTime,
         nullable=False,
@@ -98,4 +103,21 @@ def init_db():
     Base.metadata.create_all(bind=engine)
     with engine.connect() as connection:
         create_fts5_table(connection)
+        
+        # 自動マイグレーション: 既存のbookmarksテーブルにメタデータ用カラムがあるか確認
+        cursor = connection.execute(text("PRAGMA table_info(bookmarks)"))
+        existing_cols = [row[1] for row in cursor.fetchall()]
+        
+        needed_cols = [
+            ("author_name", "TEXT"),
+            ("author_handle", "TEXT"),
+            ("tweet_text", "TEXT"),
+            ("media_url", "TEXT")
+        ]
+        
+        for col, typ in needed_cols:
+            if col not in existing_cols:
+                connection.execute(text(f"ALTER TABLE bookmarks ADD COLUMN {col} {typ} DEFAULT ''"))
+                print(f"Migration: Added column {col} to bookmarks table.")
+        
         connection.commit()

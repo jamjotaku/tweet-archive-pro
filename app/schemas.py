@@ -75,9 +75,28 @@ class BookmarkResponse(BaseModel):
     category: str | None
     tags: str | None
     note: str | None
+    author_name: str | None = ""
+    author_handle: str | None = ""
+    tweet_text: str | None = ""
+    media_url: str | None = ""
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class BookmarkUpdate(BaseModel):
+    """ブックマーク編集時のリクエストスキーマ。"""
+    category: Optional[str] = None
+    tags: Optional[str] = None
+    note: Optional[str] = None
+
+    @field_validator("tags")
+    @classmethod
+    def normalize_tags(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        tags = re.sub(r"[,、\s]+", ",", v.strip())
+        return tags.strip(",")
 
 
 class BookmarkListResponse(BaseModel):
