@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Knowledge Graph - TweetArchive Pro{% endblock %}
+
+{% block head %}
+<script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<style>
+    #graph-container {
+        width: 100%;
+        height: calc(100vh - 80px);
+        background-color: #000000;
+        cursor: grab;
+    }
+    #graph-container:active { cursor: grabbing; }
+
+    /* Custom tooltip */
+    div.vis-tooltip {
+        background-color: #16181c !important;
+        border: 1px border #2f3336 !important;
+        color: #e7e9ea !important;
+        border-radius: 8px !important;
+        padding: 12px !important;
+        font-family: inherit !important;
+        font-size: 14px !important;
+        max-width: 300px;
+        white-space: normal !important;
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="flex max-w-7xl mx-auto min-h-screen relative">
+    
+    <!-- Header/Back Nav -->
+    <header class="absolute top-0 left-0 w-full z-20 glass border-b border-x-border px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <button onclick="window.history.back()" class="p-2 hover:bg-x-dark rounded-full transition text-x-text">
+                <ion-icon name="arrow-back" class="text-xl"></ion-icon>
+            </button>
+            <h2 class="text-xl font-bold flex items-center gap-2">
+                <ion-icon name="options" class="text-x-blue"></ion-icon>
+                Knowledge Graph
+            </h2>
+        </div>
+        <div class="flex items-center gap-4 text-sm text-x-text-muted">
+            <span class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-x-blue"></div> Category</span>
+            <span class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-purple-400"></div> Bookmark</span>
+        </div>
+    </header>
+
+    <!-- Graph Area -->
+    <main class="flex-1 w-full pt-[60px] relative">
+        <div id="loading-overlay" class="absolute inset-0 z-10 flex items-center justify-center bg-x-black/80 flex-col gap-4">
+            <ion-icon name="planet" class="text-6xl text-x-blue animate-pulse"></ion-icon>
+            <p class="font-bold text-x-text animate-pulse">Mapping coordinates...</p>
+        </div>
+        <div id="graph-container"></div>
+    </main>
+
+</div>
+
+<script src="/static/js/app.js?v=1.1"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        const res = await Auth.request('/bookmarks/graph?limit=300');
+        if (!res.ok) throw new Error('Failed to load graph data');
+        const data = await res.json();
+
+        // Prepare Nodes
+        const nodes = new vis.DataSet(data.nodes.map(n => {
+            const isCategory = n.group === 'category_node';
+            return {
+                id: n.id,
+                label: isCategory ? n.label : (n.label.length > 20 ? n.label.substring(0, 20) + '...' : n.label),
+                title: n.title ? n.title : n.label, // Tooltip
+                shape: isCategory ? 'box' : 'dot',
+                size: isCategory ? undefined : 15,
+                color: isCategory ? {
+                    background: '#1d9bf0',
+                    border: '#1d9bf0',
+                    highlight: { background: '#1a8cd8', border: '#1a8cd8' }
+                } : {
+                    background: '#a855f7',
+                    border: '#a855f7',
+                    highlight: { background: '#c084fc', border: '#c084fc' }
+                },
+                font: {
+                    color: '#ffffff',
+                    face: 'Inter, sans-serif',
+                    autoSize: isCategory
+                },
+                shadow: true
+            };
+        }));
+
+        // Prepare Edges
+        const edges = new vis.DataSet(data.edges.map(e => ({
+            from: e.from,
+            to: e.to,
+            color: { color: '#2f3336', highlight: '#71767b' },
+            width: 1,
+            smooth: { type: 'continuous' }
+        })));
+
+        const container = document.getElementById('graph-container');
+        const graphData = { nodes: nodes, edges: edges };
+        const options = {
+            physics: {
+                solver: 'forceAtlas2Based',
+                forceAtlas2Based: {
+                    gravitationalConstant: -100,
+                    centralGravity: 0.005,
+                    springLength: 200,
+                    springConstant: 0.05
+                },
+                maxVelocity: 50,
+                minVelocity: 0.1,
+                timestep: 0.5,
+                stabilization: { iterations: 150 }
+            },
+            interaction: {
+                hover: true,
+                tooltipDelay: 200,
+                zoomView: true,
+                dragView: true
+            }
+        };
+
+        const network = new vis.Network(container, graphData, options);
+
+        network.once("stabilizationIterationsDone", function () {
+            document.getElementById('loading-overlay').classList.add('hidden');
+        });
+        
+        // Timeout just in case stabilization takes too long
+        setTimeout(() => {
+            document.getElementById('loading-overlay').classList.add('hidden');
+        }, 3000);
+
+        // Click event to open bookmark link if it's a bookmark node
+        network.on("click", function (params) {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                if (typeof nodeId === 'number' || !nodeId.startsWith('cat_')) {
+                    // It's a bookmark!
+                    window.open(`/?search=${nodeId}`, '_blank'); // Temporary quick link strategy
+                }
+            }
+        });
+
+    } catch (e) {
+        console.error(e);
+        const overlay = document.getElementById('loading-overlay');
+        overlay.innerHTML = `<p class="text-x-error font-bold block">Error loading graph. Check console.</p>`;
+    }
+});
+</script>
+{% endblock %}

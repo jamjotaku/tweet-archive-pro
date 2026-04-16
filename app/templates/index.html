@@ -21,6 +21,10 @@
                     <ion-icon name="person-outline" class="text-3xl"></ion-icon>
                     <span class="hidden xl:inline" data-i18n="nav_profile">Profile</span>
                 </a>
+                <a href="/graph" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max transition-colors">
+                    <ion-icon name="planet-outline" class="text-3xl font-bold text-x-blue"></ion-icon>
+                    <span class="hidden xl:inline" data-i18n="nav_graph">Knowledge Graph</span>
+                </a>
                 <button onclick="openSettingsModal()" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max text-left transition-colors">
                     <ion-icon name="options" class="text-3xl"></ion-icon>
                     <span class="hidden xl:inline" data-i18n="nav_settings">Settings</span>
@@ -162,8 +166,9 @@
                 <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_tags">Tags (comma separated)</label>
             </div>
             <div class="relative group">
-                <textarea id="note" rows="3" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer resize-none focus:outline-none" placeholder=" "></textarea>
+                <textarea id="note" rows="3" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-[15px] font-mono focus:border-x-blue peer focus:outline-none custom-scrollbar" placeholder=" "></textarea>
                 <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-6 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_note">Note / Memo</label>
+                <p class="text-xs text-x-text-muted mt-1 text-right italic mr-2">Markdown styling & code blocks are supported.</p>
             </div>
             <div class="flex justify-end pt-2 border-t border-x-border mt-2 pt-4">
                 <button type="submit" class="bg-x-text text-x-black hover:bg-gray-200 font-bold py-2 px-6 rounded-full transition-colors disabled:opacity-50" id="save-btn" data-i18n="btn_save">

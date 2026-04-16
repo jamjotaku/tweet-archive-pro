@@ -6,12 +6,28 @@ crud.py - データベース操作ロジック
 import re
 import json
 import requests
+import markdown
+import bleach
 from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
 from sqlalchemy import text, func, or_
 from app.models import Bookmark, User, BookmarkRelation
 from app.schemas import BookmarkCreate, BookmarkUpdate, UserCreate, UserUpdate
 from app.auth import get_password_hash
+
+
+def parse_markdown(text: str | None) -> str:
+    """Markdownテキストを安全なHTMLに変換する。"""
+    if not text:
+        return ""
+    html_content = markdown.markdown(text, extensions=['fenced_code', 'tables', 'nl2br'])
+    allowed_tags = bleach.sanitizer.ALLOWED_TAGS | {
+        'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'br', 'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'blockquote', 'hr', 'img', 'span', 'div'
+    }
+    allowed_attrs = bleach.sanitizer.ALLOWED_ATTRIBUTES.copy()
+    allowed_attrs['*'] = ['class']
+    allowed_attrs['img'] = ['src', 'alt', 'title']
+    return bleach.clean(html_content, tags=allowed_tags, attributes=allowed_attrs)
 
 
 # --- ユーザー ---
@@ -190,6 +206,7 @@ def create_bookmark(db: Session, data: BookmarkCreate, user_id: int, auto_fetch:
         category=data.category or "未分類",
         tags=data.tags or "",
         note=data.note or "",
+        note_html=parse_markdown(data.note or ""),
         author_name=meta.get("author_name", ""),
         author_handle=meta.get("author_handle", ""),
         tweet_text=meta.get("tweet_text", ""),
@@ -235,6 +252,62 @@ def get_categories(db: Session, user_id: int):
         name = cat or "未分類"
         cats[name] = cats.get(name, 0) + count
     return [{"name": k, "count": v} for k, v in cats.items()]
+
+
+def get_knowledge_graph(db: Session, user_id: int, limit: int = 200) -> dict:
+    """ナレッジグラフ用のノードとエッジを取得する"""
+    bookmarks = db.query(Bookmark).filter(Bookmark.user_id == user_id).order_by(Bookmark.created_at.desc()).limit(limit).all()
+    
+    nodes = []
+    edges = []
+    categories = set()
+    b_ids = []
+    
+    for b in bookmarks:
+        b_ids.append(b.id)
+        # Node for Bookmark
+        label = b.author_name or (b.tweet_text[:15] + "..." if b.tweet_text else "Tweet")
+        title = b.tweet_text[:100] + "..." if b.tweet_text else ""
+        cat = b.category or "未分類"
+        categories.add(cat)
+        
+        nodes.append({
+            "id": b.id,
+            "label": label,
+            "shape": "dot",
+            "group": cat,
+            "title": title
+        })
+        
+        # Edge to Category
+        edges.append({
+            "from": b.id,
+            "to": f"cat_{cat}"
+        })
+        
+    for cat in categories:
+        nodes.append({
+            "id": f"cat_{cat}",
+            "label": cat,
+            "shape": "box",
+            "group": "category_node",
+            "value": 3
+        })
+        
+    if b_ids:
+        rels = db.query(BookmarkRelation).filter(
+            or_(
+                BookmarkRelation.bookmark_a_id.in_(b_ids),
+                BookmarkRelation.bookmark_b_id.in_(b_ids)
+            )
+        ).all()
+        for r in rels:
+            edges.append({
+                "from": r.bookmark_a_id,
+                "to": r.bookmark_b_id
+            })
+            
+    return {"nodes": nodes, "edges": edges}
 
 
 def link_bookmarks(db: Session, ids: list[int]):
@@ -305,6 +378,7 @@ def update_bookmark(db: Session, user_id: int, bookmark_id: int, data: BookmarkU
         bookmark.tags = data.tags
     if data.note is not None:
         bookmark.note = data.note
+        bookmark.note_html = parse_markdown(data.note)
     db.commit()
     db.refresh(bookmark)
     return bookmark

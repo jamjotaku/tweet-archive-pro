@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}TweetArchive Pro{% endblock %}</title>
-    <!-- Tailwind CSS (CDN) -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind CSS (CDN) with Typography -->
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -47,6 +49,6 @@
     <!-- Twitter (X) 公式ウィジェットスクリプト -->
     <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
     <!-- アプリケーションロジック -->
-    <script src="/static/js/app.js"></script>
+    <script src="/static/js/app.js?v=1.1"></script>
 </body>
 </html>

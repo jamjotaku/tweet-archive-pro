@@ -5,7 +5,7 @@ schemas.py - Pydantic バリデーションスキーマ
 
 import re
 from datetime import datetime
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 from typing import Optional
 
 
@@ -83,6 +83,7 @@ class BookmarkResponse(BaseModel):
     category: str | None
     tags: str | None
     note: str | None
+    note_html: str | None = ""
     author_name: str | None = ""
     author_handle: str | None = ""
     tweet_text: str | None = ""
@@ -122,5 +123,28 @@ class CategoryResponse(BaseModel):
 
 
 class BatchLinkRequest(BaseModel):
-    """一括リンク用リクエストスキーマ。"""
+    """複数ブックマークの関連付けリクエスト"""
     ids: list[int]
+
+
+# --- グラフ (Knowledge Graph) ---
+class GraphNode(BaseModel):
+    """グラフ描画用ノード"""
+    id: str | int
+    label: str
+    shape: str = "dot"
+    value: int = 1
+    group: str | None = None
+    title: str | None = None
+
+class GraphEdge(BaseModel):
+    """グラフ描画用エッジ"""
+    from_: str | int = Field(alias="from")
+    to: str | int
+
+class GraphData(BaseModel):
+    """グラフデータ"""
+    nodes: list[GraphNode]
+    edges: list[GraphEdge]
+
+    model_config = {"populate_by_name": True}

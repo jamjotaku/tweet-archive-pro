@@ -293,10 +293,23 @@ async function buildCard(bm) {
         rightCol.appendChild(mDiv);
     }
 
-    if (bm.note) {
+    if (bm.note_html || bm.note) {
         const noteBox = document.createElement('div');
-        noteBox.className = 'mt-3 p-3 bg-x-dark border border-x-border rounded-xl text-sm italic text-x-text-muted opacity-80';
-        noteBox.innerText = bm.note;
+        // 'prose prose-invert max-w-none' allows Tailwind Typography to style Markdown nicely (h1, bold, blockquotes, code blocks)
+        noteBox.className = 'mt-3 p-3 bg-x-dark border border-x-border rounded-xl text-[15px] prose prose-invert prose-sm max-w-none text-x-text opacity-90 markdown-body';
+        
+        if (bm.note_html) {
+            noteBox.innerHTML = bm.note_html;
+        } else {
+            noteBox.innerText = bm.note;
+        }
+        
+        if (window.hljs) {
+            noteBox.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
+        }
+        
         rightCol.appendChild(noteBox);
     }
 

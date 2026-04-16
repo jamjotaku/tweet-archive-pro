@@ -38,6 +38,7 @@ class Bookmark(Base):
     category = Column(String(128), nullable=True, default="未分類")
     tags = Column(String(512), nullable=True, default="")
     note = Column(Text, nullable=True, default="")
+    note_html = Column(Text, nullable=True, default="")
     # oEmbed メタデータ (自前カード表示用)
     author_name = Column(String(256), nullable=True, default="")
     author_handle = Column(String(128), nullable=True, default="")

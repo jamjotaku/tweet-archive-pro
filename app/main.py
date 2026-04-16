@@ -20,7 +20,10 @@ import requests
 
 from app.database import get_db
 from app.models import init_db, User
-from app.schemas import BookmarkCreate, BookmarkResponse, BookmarkListResponse, BookmarkUpdate, UserCreate, UserResponse, Token, CategoryResponse, BatchLinkRequest, UserUpdate
+from app.schemas import (
+    BookmarkCreate, BookmarkResponse, BookmarkListResponse, BookmarkUpdate, 
+    UserCreate, UserResponse, Token, CategoryResponse, BatchLinkRequest, UserUpdate, GraphData
+)
 from app import crud
 from app.auth import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, verify_password
 from app.dependencies import get_current_user
@@ -149,6 +152,12 @@ def profile_page(request: Request):
     return templates.TemplateResponse(request=request, name="profile.html")
 
 
+@app.get("/graph")
+def graph_page(request: Request):
+    """ナレッジグラフページを表示。"""
+    return templates.TemplateResponse(request=request, name="graph.html")
+
+
 # ──────────────────────────────────────────────
 # ブックマークエンドポイント (ログイン必須)
 # ──────────────────────────────────────────────
@@ -197,6 +206,16 @@ def get_categories(
 ):
     """ユーザーが使用しているカテゴリ一覧を取得。"""
     return crud.get_categories(db, current_user.id)
+
+
+@app.get("/bookmarks/graph", response_model=GraphData)
+def get_knowledge_graph(
+    limit: int = Query(200, description="取得する最大ノード数"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """ユーザーのナレッジグラフ（ノードとエッジ）を取得。"""
+    return crud.get_knowledge_graph(db, current_user.id, limit)
 
 
 @app.get("/bookmarks/{bookmark_id}/links", response_model=list[BookmarkResponse])
