@@ -1,62 +1,42 @@
-# 実装完了: 高度なアーカイブ機能（Markdown, Graph, AI）
+# ウォークスルー: 設定画面不具合の修正
 
-提案した3つの強力な機能（1. Markdownメモ, 2. ナレッジグラフ, 3. AI自動補完）の実装と検証がすべて完了しました。
+設定画面が開かなくなっていた問題を解決し、アプリケーション全体のナビゲーションとモーダルの動作を最適化しました。
 
-## 🚀 今回追加された新機能
+## 実施した主な修正
+
+### 1. モーダルコンポーネントの共通化 (DRY)
+これまで `index.html` に個別に記述されていた以下のモーダルを、共通基盤である `base.html` に移動しました。
+- **Settings Modal** (設定画面)
+- **Bookmark Modal** (新規保存画面)
+- **Edit Modal** (編集画面)
+
+これにより、ホームページだけでなく、プロフィールページやナレッジグラフページからでも一貫してこれらの機能が利用可能になりました。
+
+### 2. JavaScript (app.js) のグローバル化と堅牢化
+モーダルを制御する関数（`openSettingsModal` 等）をグローバルスコープに配置し、以下の改善を行いました：
+- **Nullチェックの追加**: ページによって存在しない要素（検索バーなど）へのアクセスをオプションチェーンで保護し、JSエラーによるスクリプトの全停止を防止しました。
+- **ページ判定**: 設定保存後に一覧を更新する際、ホームページにいる場合のみ `fetchBookmarks()` を実行するように調整しました。
+
+### 3. ナビゲーションの一貫性確保
+`index.html`, `profile.html`, `graph.html` のすべてのページで共通のサイドバー構成を維持し、リンク切れや不整合を解消しました。特にナレッジグラフ画面にもサイドバーを追加したことで、直感的な操作が可能になりました。
+
+## 検証結果
+ブラウザツールを使用し、すべてのページで設定画面が正常に開閉することを確認しました。
 
 ````carousel
-```markdown
-# 📝 Markdown & コードハイライト
-メモ欄でMarkdown記法が使えるようになりました。
-- **太字**、リスト、チェックボックス対応
-- コードブロック（Python, JS等）のシンタックスハイライト
-- サーバー側での事前パース（低スペックPCでも高速表示）
-```
+![Settings on Home](file:///C:/Users/mogiy/.gemini/antigravity/brain/e1fd67d0-3e85-4814-ae65-9cc87aefc733/.system_generated/click_feedback/click_feedback_1776319235974.png)
 <!-- slide -->
-```markdown
-# 🕸️ ビジュアル・ナレッジグラフ
-ブックマーク同士の繋がりを可視化します。
-- カテゴリを核としてツイートが星座のように繋がります
-- 直感的なズーム、ドラッグ操作
-- ブラウザ側の負荷を抑えた部分描画（ローカルグラフ）方式
-```
+![Settings on Profile](file:///C:/Users/mogiy/.gemini/antigravity/brain/e1fd67d0-3e85-4814-ae65-9cc87aefc733/.system_generated/click_feedback/click_feedback_1776319271873.png)
 <!-- slide -->
-```markdown
-# 🤖 AIによる自動タグ付け＆要約
-Gemini APIと連携し、保存時に自動で整理を行います。
-- 本文から最適な「カテゴリ」と「タグ」を抽出
-- 3行の「AI要約」を生成してノートに自動追加
-- サーバーのメモリを消費しない外部API連携方式
-```
+![Settings on Graph](file:///C:/Users/mogiy/.gemini/antigravity/brain/e1fd67d0-3e85-4814-ae65-9cc87aefc733/settings_on_graph_page_1776319314026.png)
 ````
 
-## 🛠️ 変更内容の詳細
+> [!TIP]
+> 今後は新しいページを追加する際も、この共通化されたコンポーネントを利用することで、同様の不具合を未然に防ぐことができます。
 
-### バックエンド (FastAPI / SQLAlchemy)
-- **DB拡張**: `bookmarks` テーブルに `note_html` カラムを追加。既存メモの一括変換スクリプト `migrate_add_note_html.py` を作成。
-- **Markdownパース**: `markdown` と `bleach` ライブラリを導入し、サーバー側で安全にHTML化して保存する仕組みを構築。
-- **AI Helper**: `google-generativeai` を用いた Gemini API 連携クラスを実装。
-- **Graph API**: ナレッジグラフ描画に必要なノードとエッジの情報を抽出する `/bookmarks/graph` エンドポイントを新設。
-
-### フロントエンド (Vanilla JS / Tailwind)
-- **UI拡張**: サイドバーに「Knowledge Graph」への遷移リンクを追加。
-- **レンダリング**: `Tailwind Typography (prose)` クラスを導入し、Markdownをモダンなデザインで表示。
-- **グラフ描画**: `vis-network` ライブラリを用いた専用のグラフビューアーページ (`/graph`) を作成。
-- **ハイライト**: `highlight.js` によるコードブロックの自動カラー適用。
-
-## ⚠️ ご利用にあたっての注意点
-
-> [!IMPORTANT]
-> **AI機能の有効化について**
-> AIによる自動要約・タグ付けを有効にするには、Google AI Studio 等で取得した **GEMINI_API_KEY** を環境変数に設定する必要があります。
-> *   **ローカルの場合**: `.env` ファイルに `GEMINI_API_KEY=あなたのキー` を追記。
-> *   **本番(Fly.io)の場合**: `fly secrets set GEMINI_API_KEY=あなたのキー` を実行。
-> キーが設定されていない場合、アプリはクラッシュせず「未分類」のまま保存される安全な設計になっています。
-
-## 🧪 検証結果
-- [x] **Markdown**: `# Header` や `- List` を含むメモが、意図通りにデザインされたHTMLとして表示されることを確認。
-- [x] **Knowledge Graph**: `/graph` ページにてブックマークが正しくネットワーク上に配置されることを確認。
-- [x] **AI**: APIキー未設定時のフォールバック動作（正常保存）を確認。
-
----
-本番環境（Fly.io）へのデプロイも準備できています。デプロイを進めてもよろしいでしょうか？
+## 修正ファイル
+- [base.html](file:///C:/Users/mogiy/.gemini/antigravity/scratch/tweet-archive-pro/app/templates/base.html)
+- [index.html](file:///C:/Users/mogiy/.gemini/antigravity/scratch/tweet-archive-pro/app/templates/index.html)
+- [profile.html](file:///C:/Users/mogiy/.gemini/antigravity/scratch/tweet-archive-pro/app/templates/profile.html)
+- [graph.html](file:///C:/Users/mogiy/.gemini/antigravity/scratch/tweet-archive-pro/app/templates/graph.html)
+- [app.js](file:///C:/Users/mogiy/.gemini/antigravity/scratch/tweet-archive-pro/app/static/js/app.js)

@@ -49,6 +49,174 @@
     <!-- Twitter (X) 公式ウィジェットスクリプト -->
     <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
     <!-- アプリケーションロジック -->
+    <!-- Custom JS -->
     <script src="/static/js/app.js?v=1.1"></script>
+    {% block scripts %}{% endblock %}
+
+    <!-- Common Modals -->
+    <!-- Add Bookmark Modal -->
+    <div id="bookmark-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-[#5b7083] bg-opacity-40" onclick="closeModal()"></div>
+        <div class="bg-x-black rounded-2xl w-full max-w-[600px] flex flex-col relative z-10 shadow-2xl">
+            <div class="flex items-center px-4 py-3 border-b border-x-border">
+                <button type="button" onclick="closeModal()" class="p-2 hover:bg-x-dark rounded-full inline-flex items-center justify-center mr-4 transition-colors">
+                    <ion-icon name="close" class="text-xl"></ion-icon>
+                </button>
+                <h2 class="font-bold text-xl" data-i18n="modal_save_title">Save a Tweet</h2>
+            </div>
+            <form id="add-bookmark-form" class="p-4 flex flex-col gap-4">
+                <div class="relative group">
+                    <input type="url" id="url" required autocomplete="off" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer focus:outline-none" placeholder=" ">
+                    <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_url">Tweet URL *</label>
+                </div>
+                <div class="relative group">
+                    <input type="text" id="category" autocomplete="off" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer focus:outline-none" placeholder=" ">
+                    <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_category">Category</label>
+                </div>
+                <div class="relative group">
+                    <input type="text" id="tags" autocomplete="off" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer focus:outline-none" placeholder=" ">
+                    <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_tags">Tags (comma separated)</label>
+                </div>
+                <div class="relative group">
+                    <textarea id="note" rows="3" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-[15px] font-mono focus:border-x-blue peer focus:outline-none custom-scrollbar" placeholder=" "></textarea>
+                    <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-6 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_note">Note / Memo</label>
+                    <p class="text-xs text-x-text-muted mt-1 text-right italic mr-2">Markdown styling & code blocks are supported.</p>
+                </div>
+                <div class="flex justify-end pt-2 border-t border-x-border mt-2 pt-4">
+                    <button type="submit" class="bg-x-text text-x-black hover:bg-gray-200 font-bold py-2 px-6 rounded-full transition-colors disabled:opacity-50" id="save-btn" data-i18n="btn_save">
+                        Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-[#5b7083] bg-opacity-40" onclick="closeSettingsModal()"></div>
+        <div class="bg-x-black rounded-2xl w-full max-w-[500px] flex flex-col relative z-10 shadow-2xl overflow-hidden max-h-screen">
+            <div class="flex items-center px-4 py-3 border-b border-x-border">
+                <button type="button" onclick="closeSettingsModal()" class="p-2 hover:bg-x-dark rounded-full inline-flex items-center justify-center mr-4 transition-colors">
+                    <ion-icon name="close" class="text-xl"></ion-icon>
+                </button>
+                <h2 class="font-bold text-xl" data-i18n="modal_settings_title">Extensions & Settings</h2>
+            </div>
+            
+            <div class="p-4 overflow-y-auto" id="settings-container">
+                <div class="mb-6">
+                    <h3 class="text-x-text-muted font-bold text-xs uppercase tracking-wide mb-3" data-i18n="set_group_general">General UI</h3>
+                    <div class="flex items-center justify-between py-2">
+                        <div>
+                            <div class="font-medium" data-i18n="set_lang">Language</div>
+                            <div class="text-sm text-x-text-muted" data-i18n="set_lang_desc">Switch interface language.</div>
+                        </div>
+                        <select id="set-lang" class="bg-x-dark border border-x-border rounded p-1 text-sm outline-none">
+                            <option value="en">English</option>
+                            <option value="ja">日本語</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center justify-between py-2">
+                        <div>
+                            <div class="font-medium" data-i18n="set_theme">Theme Mode</div>
+                            <div class="text-sm text-x-text-muted" data-i18n="set_theme_desc">Lights Out or Dim.</div>
+                        </div>
+                        <select id="set-theme" class="bg-x-dark border border-x-border rounded p-1 text-sm outline-none">
+                            <option value="lights-out">Lights Out</option>
+                            <option value="dim">Dim</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center justify-between py-2">
+                        <div>
+                            <div class="font-medium" data-i18n="set_blur">Privacy Blur Mode</div>
+                            <div class="text-sm text-x-text-muted" data-i18n="set_blur_desc">Blur all content until hovered.</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="set-blur" class="sr-only peer">
+                            <div class="w-11 h-6 bg-x-border rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-x-blue after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="mb-6">
+                    <div class="flex items-center justify-between py-2">
+                        <div>
+                            <div class="font-medium" data-i18n="set_media">Hide Media (Data Saver)</div>
+                            <div class="text-sm text-x-text-muted" data-i18n="set_media_desc">Do not load images or videos in cards.</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="set-media" class="sr-only peer">
+                            <div class="w-11 h-6 bg-x-border rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-x-blue after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between py-2">
+                        <div>
+                            <div class="font-medium" data-i18n="set_thread">Show Conversation</div>
+                            <div class="text-sm text-x-text-muted" data-i18n="set_thread_desc">Show parent tweet if it's a reply.</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="set-thread" class="sr-only peer">
+                            <div class="w-11 h-6 bg-x-border rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-x-blue after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-x-text-muted font-bold text-xs uppercase tracking-wide mb-3" data-i18n="set_group_advanced">Advanced / Tools</h3>
+                    <div class="flex items-center justify-between py-2">
+                        <div>
+                            <div class="font-medium text-x-blue" data-i18n="set_autofetch">Auto-Fetch Metadata</div>
+                            <div class="text-sm text-x-text-muted" data-i18n="set_autofetch_desc">Auto-fill notes with tweet author name.</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="set-autofetch" class="sr-only peer">
+                            <div class="w-11 h-6 bg-x-border rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-x-blue after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between py-2">
+                        <div>
+                            <div class="font-medium" data-i18n="set_toolsexp">Export Tool Panel</div>
+                            <div class="text-sm text-x-text-muted" data-i18n="set_toolsexp_desc">Show data export options in sidebar.</div>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="set-toolsexp" class="sr-only peer">
+                            <div class="w-11 h-6 bg-x-border rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-x-blue after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Bookmark Modal -->
+    <div id="edit-modal" class="fixed inset-0 z-[70] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-[#5b7083] bg-opacity-40" onclick="closeEditModal()"></div>
+        <div class="bg-x-black rounded-2xl w-full max-w-[500px] flex flex-col relative z-10 shadow-2xl">
+            <div class="flex items-center px-4 py-3 border-b border-x-border">
+                <button type="button" onclick="closeEditModal()" class="p-2 hover:bg-x-dark rounded-full inline-flex items-center justify-center mr-4 transition-colors">
+                    <ion-icon name="close" class="text-xl"></ion-icon>
+                </button>
+                <h2 class="font-bold text-xl" data-i18n="edit_modal_title">Edit Bookmark</h2>
+            </div>
+            <form id="edit-bookmark-form" class="p-4 flex flex-col gap-4">
+                <div class="relative group">
+                    <input type="text" id="edit-category" autocomplete="off" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer focus:outline-none" placeholder=" ">
+                    <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_category">Category</label>
+                </div>
+                <div class="relative group">
+                    <input type="text" id="edit-tags" autocomplete="off" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer focus:outline-none" placeholder=" ">
+                    <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_tags">Tags (comma separated)</label>
+                </div>
+                <div class="relative group">
+                    <textarea id="edit-note" rows="4" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer resize-none focus:outline-none" placeholder=" "></textarea>
+                    <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-6 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_note">Note / Memo</label>
+                </div>
+                <div class="flex justify-end border-t border-x-border pt-4">
+                    <button type="submit" id="update-btn" class="bg-x-blue hover:bg-x-blue-hover text-white font-bold py-2 px-6 rounded-full transition-colors disabled:opacity-50" data-i18n="btn_update">
+                        Update
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
 </html>

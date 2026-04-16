@@ -460,18 +460,88 @@ window.batchLink = async () => {
 // Init & Modals
 // ----------------------------------------------------
 window.openModal = () => {
-    document.getElementById('url').value = '';
-    // ID in index.html is bookmark-modal
-    document.getElementById('bookmark-modal').classList.remove('hidden');
+    const urlEl = document.getElementById('url');
+    if (urlEl) urlEl.value = '';
+    document.getElementById('bookmark-modal')?.classList.remove('hidden');
 };
 window.closeModal = () => {
-    document.getElementById('bookmark-modal').classList.add('hidden');
+    document.getElementById('bookmark-modal')?.classList.add('hidden');
+};
+
+window.openSettingsModal = () => {
+    const langEl = document.getElementById('set-lang');
+    if (langEl) langEl.value = appSettings.lang;
+    const themeEl = document.getElementById('set-theme');
+    if (themeEl) themeEl.value = appSettings.theme || 'lights-out';
+    const compactEl = document.getElementById('set-compact');
+    if (compactEl) compactEl.checked = appSettings.compactMode;
+    const threadEl = document.getElementById('set-thread');
+    if (threadEl) threadEl.checked = appSettings.showThread;
+    const mediaEl = document.getElementById('set-media');
+    if (mediaEl) mediaEl.checked = appSettings.hideMedia;
+    document.getElementById('settings-modal')?.classList.remove('hidden');
+};
+
+window.closeSettingsModal = () => {
+    const langEl = document.getElementById('set-lang');
+    const themeEl = document.getElementById('set-theme');
+    const compactEl = document.getElementById('set-compact');
+    const threadEl = document.getElementById('set-thread');
+    const mediaEl = document.getElementById('set-media');
+    
+    if (langEl) appSettings.lang = langEl.value;
+    if (themeEl) appSettings.theme = themeEl.value;
+    if (compactEl) appSettings.compactMode = compactEl.checked;
+    if (threadEl) appSettings.showThread = threadEl.checked;
+    if (mediaEl) appSettings.hideMedia = mediaEl.checked;
+    
+    saveSettings();
+    if (window.location.pathname === '/') {
+        fetchBookmarks();
+    }
+    document.getElementById('settings-modal')?.classList.add('hidden');
+};
+
+window.openEditModal = (id) => {
+    const bm = allBookmarks.find(b => b.id === id);
+    if (!bm) return;
+    const modal = document.getElementById('edit-modal');
+    if (!modal) return;
+    modal.dataset.id = id;
+    const catEl = document.getElementById('edit-category');
+    const tagEl = document.getElementById('edit-tags');
+    const noteEl = document.getElementById('edit-note');
+    if (catEl) catEl.value = bm.category || '';
+    if (tagEl) tagEl.value = bm.tags || '';
+    if (noteEl) noteEl.value = bm.note || '';
+    modal.classList.remove('hidden');
+};
+
+window.closeEditModal = () => {
+    document.getElementById('edit-modal')?.classList.add('hidden');
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    // 共通初期化
+    applySettings();
+    
+    // パスに関わらずユーザー情報を取得
+    Auth.request('/users/me').then(r => r.json()).then(user => {
+        if (user.username) {
+            const elements = [
+                'user-display-name', 'username-handle', 
+                'profile-name', 'profile-handle', 'header-name'
+            ];
+            elements.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerText = id.includes('handle') ? user.username.toLowerCase() : user.username;
+            });
+        }
+    }).catch(() => {});
+
+    // ホームページ専用の初期化
     if (window.location.pathname === '/') {
         if (!Auth.getToken()) window.location.href = '/login';
-        applySettings();
         fetchBookmarks();
         
         document.getElementById('search-input')?.addEventListener('input', (e) => {
@@ -506,42 +576,26 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.disabled = false; btn.innerText = t('btn_save');
         });
 
+        // Edit Form
+        document.getElementById('edit-bookmark-form')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('edit-modal').dataset.id;
+            const data = {
+                category: document.getElementById('edit-category').value,
+                tags: document.getElementById('edit-tags').value,
+                note: document.getElementById('edit-note').value
+            };
+            const res = await Auth.request(`/bookmarks/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            if (res.ok) { window.closeEditModal(); fetchBookmarks(); }
+        });
+
         // Logout
         document.getElementById('logout-btn')?.addEventListener('click', () => {
             Auth.logout();
         });
-
-        // User Profile Info
-        Auth.request('/users/me').then(r => r.json()).then(user => {
-            if (user.username) {
-                const dName = document.getElementById('user-display-name');
-                const hName = document.getElementById('username-handle');
-                if (dName) dName.innerText = user.username;
-                if (hName) hName.innerText = user.username.toLowerCase();
-                
-                // Profile page elements if present
-                const pName = document.getElementById('profile-name');
-                const pHandle = document.getElementById('profile-handle');
-                if (pName) pName.innerText = user.username;
-                if (pHandle) pHandle.innerText = user.username.toLowerCase();
-            }
-        }).catch(() => {});
-
-        window.openSettingsModal = () => {
-            document.getElementById('set-lang').value = appSettings.lang;
-            document.getElementById('set-compact').checked = appSettings.compactMode;
-            document.getElementById('set-thread').checked = appSettings.showThread;
-            document.getElementById('set-media').checked = appSettings.hideMedia;
-            document.getElementById('settings-modal').classList.remove('hidden');
-        };
-        window.closeSettingsModal = () => {
-            appSettings.lang = document.getElementById('set-lang').value;
-            appSettings.compactMode = document.getElementById('set-compact').checked;
-            appSettings.showThread = document.getElementById('set-thread').checked;
-            appSettings.hideMedia = document.getElementById('set-media').checked;
-            saveSettings();
-            fetchBookmarks();
-            document.getElementById('settings-modal').classList.add('hidden');
-        };
     }
 });

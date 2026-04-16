@@ -32,25 +32,53 @@
 {% block content %}
 <div class="flex max-w-7xl mx-auto min-h-screen relative">
     
-    <!-- Header/Back Nav -->
-    <header class="absolute top-0 left-0 w-full z-20 glass border-b border-x-border px-4 py-3 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-            <button onclick="window.history.back()" class="p-2 hover:bg-x-dark rounded-full transition text-x-text">
-                <ion-icon name="arrow-back" class="text-xl"></ion-icon>
-            </button>
-            <h2 class="text-xl font-bold flex items-center gap-2">
-                <ion-icon name="options" class="text-x-blue"></ion-icon>
-                Knowledge Graph
-            </h2>
+    <!-- Sidebar / Navigation (Same as Index/Profile) -->
+    <header class="w-16 sm:w-20 xl:w-64 flex flex-col items-center xl:items-start justify-between py-4 xl:py-6 px-2 xl:px-4 shrink-0 fixed h-screen border-r border-x-border z-30 glass">
+        <div class="flex flex-col items-center xl:items-start gap-4 xl:gap-6 w-full">
+            <a href="/" class="p-3 hover:bg-x-dark rounded-full inline-flex items-center justify-center transition-colors">
+                <ion-icon name="bookmark" class="text-3xl text-x-text"></ion-icon>
+            </a>
+            
+            <nav class="flex flex-col gap-2 w-full items-center xl:items-start">
+                <a href="/" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max">
+                    <ion-icon name="home-outline" class="text-3xl"></ion-icon>
+                    <span class="hidden xl:inline" data-i18n="nav_home">Home</span>
+                </a>
+                <a href="/profile" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max">
+                    <ion-icon name="person-outline" class="text-3xl"></ion-icon>
+                    <span class="hidden xl:inline" data-i18n="nav_profile">Profile</span>
+                </a>
+                <a href="/graph" class="p-3 xl:px-4 xl:py-3 bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-bold w-max">
+                    <ion-icon name="planet" class="text-3xl text-x-blue"></ion-icon>
+                    <span class="hidden xl:inline" data-i18n="nav_graph">Knowledge Graph</span>
+                </a>
+                <button onclick="openSettingsModal()" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max text-left transition-colors">
+                    <ion-icon name="options-outline" class="text-3xl"></ion-icon>
+                    <span class="hidden xl:inline" data-i18n="nav_settings">Settings</span>
+                </button>
+            </nav>
         </div>
-        <div class="flex items-center gap-4 text-sm text-x-text-muted">
-            <span class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-x-blue"></div> Category</span>
-            <span class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-purple-400"></div> Bookmark</span>
-        </div>
+        
+        <button onclick="Auth.logout()" class="p-3 hover:bg-x-dark rounded-full flex xl:inline-flex items-center gap-3 w-full xl:w-auto mt-auto justify-center xl:justify-start" title="Logout">
+            <ion-icon name="log-out-outline" class="text-2xl"></ion-icon>
+            <span class="hidden xl:inline font-bold">Log out</span>
+        </button>
     </header>
 
+    <!-- Header Overlay (Simplified) -->
+    <div class="fixed top-0 left-16 sm:left-20 xl:left-64 right-0 z-20 glass border-b border-x-border px-4 py-3 flex items-center justify-between">
+        <h2 class="text-xl font-bold flex items-center gap-2">
+            <ion-icon name="options" class="text-x-blue"></ion-icon>
+            Knowledge Graph
+        </h2>
+        <div class="flex items-center gap-4 text-sm text-x-text-muted">
+            <span class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-x-blue"></div> Category</span>
+            <span class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-purple-400"></div> Bookmark</span>
+        </div>
+    </div>
+
     <!-- Graph Area -->
-    <main class="flex-1 w-full pt-[60px] relative">
+    <main class="flex-1 ml-16 sm:ml-20 xl:ml-64 w-full pt-[60px] relative">
         <div id="loading-overlay" class="absolute inset-0 z-10 flex items-center justify-center bg-x-black/80 flex-col gap-4">
             <ion-icon name="planet" class="text-6xl text-x-blue animate-pulse"></ion-icon>
             <p class="font-bold text-x-text animate-pulse">Mapping coordinates...</p>
