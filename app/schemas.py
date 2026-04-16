@@ -127,6 +127,11 @@ class BatchLinkRequest(BaseModel):
     ids: list[int]
 
 
+class BatchDeleteRequest(BaseModel):
+    """複数ブックマークの一括削除リクエスト"""
+    ids: list[int]
+
+
 # --- グラフ (Knowledge Graph) ---
 class GraphNode(BaseModel):
     """グラフ描画用ノード"""

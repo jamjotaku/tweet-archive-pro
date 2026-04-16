@@ -353,15 +353,33 @@ def search_bookmarks(db: Session, user_id: int, query: str):
     if not query:
         return []
     
+    # rowid を使って元の Bookmark モデルと結合し、モデルオブジェクトのリストとして取得する
     fts_query = text("""
-        SELECT b.* FROM bookmarks b
+        SELECT b.id FROM bookmarks b
         JOIN bookmarks_fts f ON b.id = f.rowid
         WHERE f.bookmarks_fts MATCH :q AND b.user_id = :u
         ORDER BY rank
     """)
     result = db.execute(fts_query, {"q": f"{query}*", "u": user_id})
-    # 辞書形式またはモデルインスタンスに変換
-    return result.fetchall()
+    ids = [row[0] for row in result.fetchall()]
+    
+    if not ids:
+        return []
+    
+    # 順番を維持しつつオブジェクトを取得
+    return db.query(Bookmark).filter(Bookmark.id.in_(ids)).all()
+
+
+def batch_delete_bookmarks(db: Session, user_id: int, ids: list[int]) -> int:
+    """複数のブックマークを一括で削除する。"""
+    query = db.query(Bookmark).filter(
+        Bookmark.user_id == user_id,
+        Bookmark.id.in_(ids)
+    )
+    count = query.count()
+    query.delete(synchronize_session=False)
+    db.commit()
+    return count
 
 
 def update_bookmark(db: Session, user_id: int, bookmark_id: int, data: BookmarkUpdate) -> Bookmark | None:

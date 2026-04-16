@@ -1,35 +1,57 @@
-# [修正プラン] 設定画面の動作復旧とコンポーネントの共通化
+# [点検・修正プラン] TweetArchive Pro システム統合メンテナンス
 
-## 現状の課題
-新しいページ（プロフィール、ナレッジグラフ）を追加した際、設定画面（Settings Modal）のHTMLと制御用のJavaScriptがホームページ（`/`）専用になっていたため、他ページから「設定」ボタンを押しても動作しません。また、最近の修正で設定ボタンの動作がさらに不安定になっています。
+最近の機能追加（グラフ表示、マークダウン対応、設定画面共通化）を踏まえ、システム全体の一斉点検とバグ修正、およびパフォーマンス改善を行います。
 
-## ユーザーレビューが必要な項目
+## User Review Required
+
 > [!IMPORTANT]
-> サイドバーやモーダルなど、全ページで共通するUIコンポーネントの配置構成を整理するため、一時的に画面表示が崩れる可能性がありますが、最終的にはすべてのページで正しく設定画面が開けるように修正します。
+> **パフォーマンス改善**: ブックマーク一覧の読み込み時に、カードごとに「関連リンク」を取得するリクエストが発生しており、表示が非常に重くなる可能性があります。これをバックエンド側で1つのリクエストにまとめるか、必要な場合のみ取得するよう変更します。
 
-## 修正内容の提案
+> [!WARNING]
+> **未実装関数の修正**: HTML 上で呼び出されているのに JS に定義がない関数 (`batchSync`, `exportData`) を追加します。
 
-### 1. UIコンポーネントの完全共通化 (base.html)
-- `bookmark-modal` (保存), `settings-modal` (設定), `edit-modal` (編集) のすべてのモーダルHTMLを `index.html` から `base.html` に移動します。
-- これにより、どのページにいても「ツイート保存」や「設定変更」が可能になります。
+## Proposed Changes
 
-### 2. JavaScript ロジックの修正 (app.js)
-- モーダル開閉関数（`openSettingsModal`等）を `DOMContentLoaded` のパス制限外（グローバル）に配置します。
-- 関数内で `document.getElementById` を使用する際、要素が存在しない場合のNullチェックを追加し、エラーによるスクリプト停止を防止します。
-- 設定変更後の `fetchBookmarks()`（一覧更新）は、ホームページにいる時のみ実行するようにガードを入れます。
+### 1. バックエンド (Python/FastAPI)
 
-### 3. サイドバーの一貫性確保 (各HTMLファイル)
-- `index.html`, `profile.html`, `graph.html` のサイドバーを整理し、すべて `openSettingsModal()` を呼ぶように統一します。
-- 他のナビゲーションアイテム（Home, Profile, Graph）へのリンクも、重複を避けつつ正しいパスに向けます。
+#### [MODIFY] [crud.py](file:///C:/Users/mogiy/.gemini/antigravity/scratch/tweet-archive-pro/app/crud.py)
+- `search_bookmarks`: 戻り値を SQLAlchemy モデルのリスト、または辞書のリストに明示的に変換し、FastAPI のレスポンススキーマとの互換性を確保します。
+- **[NEW]** `batch_delete_bookmarks`: 複数 ID を一括で削除する効率的な関数を追加。
 
-## 検証プラン
+#### [MODIFY] [main.py](file:///C:/Users/mogiy/.gemini/antigravity/scratch/tweet-archive-pro/app/main.py)
+- 一括削除用のエンドポイントを追加。
+- 検索結果の変換処理を確認・修正。
 
-### 自動テスト (ブラウザ)
-- `browser_subagent` を使用し、以下のシナリオをテストします：
-  1. ホームページで「設定」を開き、閉じられるか。
-  2. プロフィールページで「設定」を開き、閉じられるか。
-  3. コンソールに致命的なJSエラーが出ていないか。
+### 2. フロントエンド (JS/HTML/CSS)
 
-### 修正後の確認事項
-- 各ページの「保存済みツイート数」などのカウントが正しく表示されるか。
-- 設定変更（言語切り替え、メディア非表示等）が即座に反映されるか。
+#### [MODIFY] [app.js](file:///C:/Users/mogiy/.gemini/antigravity/scratch/tweet-archive-pro/app/static/js/app.js)
+- **パフォーマンス最適化**: `buildCard` 内での個別フェッチを一時的に無効化、または一覧取得 API に含めるように修正。
+- **未実装関数の追加**: `batchSync` と `exportData` のロジックを実装。
+- **i18n の補完**: `btn_bookmark`, `select_at_least_two` などの不足キーを `ja`/`en` 両方に追加。
+- **バグ修正**: ブックマークレットの URL を `window.location.origin` を使用した動的なものに変更。
+
+#### [MODIFY] [index.html](file:///C:/Users/mogiy/.gemini/antigravity/scratch/tweet-archive-pro/app/templates/index.html)
+- ブックマークレットの `href` を動的に設定するための ID を追加。
+
+#### [MODIFY] [style.css](file:///C:/Users/mogiy/.gemini/antigravity/scratch/tweet-archive-pro/app/static/css/style.css)
+- 以前の修正で追加されたトースト通知やバッチツールバーのスタイルが崩れていないか確認し、微調整。
+
+### 3. その他
+
+#### [UPDATE] [docs](file:///C:/Users/mogiy/.gemini/antigravity/scratch/tweet-archive-pro/docs/)
+- 実装プランやタスクリストを最新の「点検完了」状態に更新。
+
+## Open Questions
+
+特にありません。
+
+## Verification Plan
+
+### Automated Tests
+- `pytest` (もしあれば) を実行して API の不整合をチェック。
+- 手動で `curl` またはブラウザツールを用いて一括削除・エクスポートをテスト。
+
+### Manual Verification
+- ホーム、プロフィール、グラフ各画面で JS エラーが出ていないかコンソールを確認。
+- 「選択モード」での一括リンク・一括削除の動作確認。
+- 検索機能で正常にヒットするか確認。

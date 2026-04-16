@@ -46,6 +46,12 @@ function applySettings() {
     document.body.classList.toggle('compact-mode', appSettings.compactMode);
     document.body.classList.toggle('gallery-mode', isGalleryMode);
     
+    // Sidebar Plugins visibility
+    const exp = document.getElementById('plugin-export');
+    const bml = document.getElementById('plugin-bookmarklet');
+    if (exp) exp.classList.toggle('hidden', !appSettings.showExport);
+    if (bml) bml.classList.toggle('hidden', !appSettings.showBookmarklet);
+
     applyTranslations();
 }
 
@@ -62,23 +68,41 @@ const i18n = {
         set_compact: "Compact Mode", set_thread: "Show Thread (Unroll)", set_media: "Hide Media",
         no_bookmarks: "No bookmarks found", btn_batch_sync: "Sync", btn_batch_delete: "Delete",
         selected_items: "selected", confirm_batch_delete: "Delete selected items?",
-        btn_batch_link: 'Link', related_title: 'Related bookmarks:'
+        btn_batch_link: 'Link', related_title: 'Related bookmarks:',
+        btn_bookmark: "Bookmark", select_at_least_two: "Select at least 2 items",
+        bookmarks_linked: "Bookmarks linked", btn_quick_save: "+ Save to Archive",
+        modal_settings_title: "Settings & Extensions",
+        set_group_general: "General UI", set_lang: "Language", set_lang_desc: "Interface language.",
+        set_theme: "Theme Mode", set_theme_desc: "Change contrast levels.",
+        set_blur: "Privacy Blur", set_blur_desc: "Blur card content.",
+        set_group_view: "Content Display", set_media: "Hide Media", set_media_desc: "Save data in cards.",
+        set_thread: "Show Thread", set_thread_desc: "Unroll parent tweets.",
+        set_group_advanced: "Advanced Tools",
+        set_autofetch: "Auto-Fetch Metadata", set_autofetch_desc: "Auto-fill missing details.",
+        set_toolsexp: "Export Data Panel", set_toolsexp_desc: "Show export in sidebar.",
+        set_toolsbml: "Bookmarklet Panel", set_toolsbml_desc: "Quick save button in sidebar."
     },
     ja: {
         nav_home: "ホーム", nav_settings: "設定", nav_batch: "一括選択", nav_gallery: "ギャラリー", nav_profile: "プロフィール",
         header_title: "保存済みツイート", search_placeholder: "本文、著者、タグで検索...",
-        side_categories: 'カテゴリ',
-        side_timeline: 'タイムライン',
-        side_export: 'エクスポート',
-        side_export_desc: '全データをダウンロード',
-        side_bookmarklet: 'ブックマークレット',
-        side_bookmarklet_desc: 'ボタンをブックマークバーにドラッグして、ツイートを即座に保存。',
+        side_categories: 'カテゴリ', side_timeline: 'タイムライン', side_export: 'エクスポート', side_export_desc: '全データをダウンロード',
+        side_bookmarklet: 'ブックマークレット', side_bookmarklet_desc: 'ボタンをブックマークバーにドラッグして、ツイートを即座に保存。',
         modal_save_title: "ツイートを保存", btn_save: "保存する",
-        set_group_general: "共通 UI", set_lang: "言語", set_group_view: "表示モード",
-        set_compact: "リスト表示", set_thread: "スレッド展開", set_media: "メディア非表示",
-        no_bookmarks: '保存されたブックマークがありません。', btn_batch_sync: "同期", btn_batch_delete: "削除",
+        modal_settings_title: "設定と拡張機能",
+        set_group_general: "共通 UI", set_lang: "言語", set_lang_desc: "インターフェースの言語",
+        set_theme: "テーマ", set_theme_desc: "ダークモードのコントラストを調整",
+        set_blur: "プライバシーぼかし", set_blur_desc: "ホバーした時のみ表示",
+        set_group_view: "表示モード", set_media: "メディア非表示", set_media_desc: "画像の読み込みを制限",
+        set_thread: "スレッド展開", set_thread_desc: "親ツイートも表示",
+        set_group_advanced: "高度な設定",
+        set_autofetch: "自動メタデータ取得", set_autofetch_desc: "保存時に著者名を自動補完",
+        set_toolsexp: "データエクスポート", set_toolsexp_desc: "サイドバーに表示",
+        set_toolsbml: "ブックマークレット", set_toolsbml_desc: "サイドバーに表示",
+        no_bookmarks: '保存されたブックマークがありません。', btn_batch_sync: "一括同期", btn_batch_delete: "一括削除",
         selected_items: "件選択中", confirm_batch_delete: "選択したアイテムを削除しますか？",
-        btn_batch_link: 'リンク', related_title: '関連ブックマーク:'
+        btn_batch_link: 'リンク', related_title: '関連ブックマーク:',
+        btn_bookmark: "保存", select_at_least_two: "2つ以上のアイテムを選択してください",
+        bookmarks_linked: "相互に関連付けました", btn_quick_save: "+ アーカイブに保存"
     }
 };
 
@@ -179,14 +203,61 @@ async function batchDelete() {
     if (selectedIds.size === 0) return;
     if (!confirm(t('confirm_batch_delete'))) return;
     const ids = Array.from(selectedIds);
-    for (const id of ids) { await Auth.request(`/bookmarks/${id}`, { method: 'DELETE' }); }
-    showToast(appSettings.lang === 'ja' ? "一括削除完了" : "Deleted");
-    allBookmarks = allBookmarks.filter(b => !selectedIds.has(b.id));
-    totalBookmarks -= selectedIds.size;
-    toggleBatchMode();
-    renderBookmarks(allBookmarks, totalBookmarks);
-    fetchTimelineStats();
+    const res = await Auth.request('/bookmarks/batch/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ ids })
+    });
+    if (res.ok) {
+        showToast(appSettings.lang === 'ja' ? "一括削除完了" : "Batch Deleted");
+        allBookmarks = allBookmarks.filter(b => !selectedIds.has(b.id));
+        totalBookmarks -= selectedIds.size;
+        toggleBatchMode();
+        renderBookmarks(allBookmarks, totalBookmarks);
+        fetchTimelineStats();
+    }
 }
+
+async function batchSync() {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    showToast(appSettings.lang === 'ja' ? "同期開始..." : "Syncing started...");
+    for (const id of ids) {
+        await Auth.request(`/bookmarks/${id}/sync`, { method: 'POST' });
+    }
+    showToast(appSettings.lang === 'ja' ? "一括同期完了" : "Batch Sync Done");
+    fetchBookmarks();
+}
+
+async function exportData(format) {
+    const res = await Auth.request(`/bookmarks/export?format=${format}`);
+    if (res.ok) {
+        if (format === 'csv') {
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bookmarks_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } else {
+            const data = await res.json();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bookmarks_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+    }
+}
+
+window.batchDelete = batchDelete;
+window.batchSync = batchSync;
+window.exportData = exportData;
 
 // ----------------------------------------------------
 // Card Builder (Advanced)
@@ -204,20 +275,22 @@ function renderMedia(urlStr) {
     return html;
 }
 
-async function buildCard(bm) {
+function buildCard(bm) {
     const wrapper = document.createElement('article');
     wrapper.className = `tweet-card border-b border-x-border relative group cursor-pointer flex flex-col`;
     wrapper.dataset.id = bm.id;
     
-    // Main Body Wrapper (to handle thread line)
+    // Main Body Wrapper
     const bodyWrapper = document.createElement('div');
     bodyWrapper.className = 'flex relative w-full';
 
     bodyWrapper.onclick = (e) => {
         if (isBatchMode) {
             const cb = wrapper.querySelector('.batch-checkbox');
-            cb.checked = !cb.checked;
-            cb.dispatchEvent(new Event('change'));
+            if (cb) {
+                cb.checked = !cb.checked;
+                cb.dispatchEvent(new Event('change'));
+            }
             return;
         }
         if (!e.target.closest('button') && !e.target.closest('a') && !e.target.closest('img')) {
@@ -259,7 +332,7 @@ async function buildCard(bm) {
     hRow.innerHTML = `
         <span class="font-bold text-[15px] hover:underline truncate max-w-[150px]">${authorName}</span>
         <span class="text-x-text-muted text-[15px]">@${bm.author_handle || 'user'} · ${dateStr}</span>
-        ${bm.category && bm.category !== '未分類' ? `<span class="ml-auto bg-x-blue/10 text-x-blue text-[10px] px-2 py-0.5 rounded-full font-bold uppercase transition hover:bg-x-blue/20" onclick="event.stopPropagation(); applyCategoryFilter('${bm.category}')">${bm.category}</span>` : ''}
+        ${bm.category && bm.category !== '未分類' ? `<span class="ml-auto bg-x-blue/10 text-x-blue text-[10px] px-2 py-0.5 rounded-full font-bold uppercase transition hover:bg-x-blue/20" onclick="event.stopPropagation(); window.applyCategoryFilter('${bm.category}')">${bm.category}</span>` : ''}
     `;
     rightCol.appendChild(hRow);
 
@@ -278,8 +351,8 @@ async function buildCard(bm) {
             tSpan.innerText = `#${tag}`;
             tSpan.onclick = (e) => {
                 e.stopPropagation();
-                document.getElementById('search-input').value = tag;
-                document.getElementById('search-input').dispatchEvent(new Event('input'));
+                const si = document.getElementById('search-input');
+                if (si) { si.value = tag; si.dispatchEvent(new Event('input')); }
             };
             tagBox.appendChild(tSpan);
         });
@@ -295,55 +368,12 @@ async function buildCard(bm) {
 
     if (bm.note_html || bm.note) {
         const noteBox = document.createElement('div');
-        // 'prose prose-invert max-w-none' allows Tailwind Typography to style Markdown nicely (h1, bold, blockquotes, code blocks)
         noteBox.className = 'mt-3 p-3 bg-x-dark border border-x-border rounded-xl text-[15px] prose prose-invert prose-sm max-w-none text-x-text opacity-90 markdown-body';
-        
-        if (bm.note_html) {
-            noteBox.innerHTML = bm.note_html;
-        } else {
-            noteBox.innerText = bm.note;
-        }
-        
-        if (window.hljs) {
-            noteBox.querySelectorAll('pre code').forEach((block) => {
-                hljs.highlightElement(block);
-            });
-        }
-        
+        if (bm.note_html) noteBox.innerHTML = bm.note_html;
+        else noteBox.innerText = bm.note;
+        if (window.hljs) noteBox.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
         rightCol.appendChild(noteBox);
     }
-
-    // Related Bookmarks Section
-    try {
-        const linksRes = await Auth.request(`/bookmarks/${bm.id}/links`);
-        if (linksRes.ok) {
-            const links = await linksRes.json();
-            if (links.length > 0) {
-                const linkBox = document.createElement('div');
-                linkBox.className = 'mt-3 pt-2 border-t border-x-border/30 flex flex-col gap-1';
-                linkBox.innerHTML = `<span class="text-[10px] font-bold text-x-text-muted uppercase tracking-wider">${t('related_title')}</span>`;
-                links.forEach(l => {
-                    const lA = document.createElement('a');
-                    lA.className = 'text-x-blue text-xs hover:underline flex items-center gap-1';
-                    lA.innerHTML = `<ion-icon name="link"></ion-icon> ${l.author_name || 'Tweet'}: ${l.tweet_text ? l.tweet_text.substring(0, 30) + '...' : l.url.substring(0, 30)}`;
-                    lA.onclick = (e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        const target = document.querySelector(`article[data-id="${l.id}"]`);
-                        if (target) {
-                            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            target.classList.add('bg-x-blue/10');
-                            setTimeout(() => target.classList.remove('bg-x-blue/10'), 2000);
-                        } else {
-                            window.open(l.url, '_blank');
-                        }
-                    };
-                    linkBox.appendChild(lA);
-                });
-                rightCol.appendChild(linkBox);
-            }
-        }
-    } catch(e){}
 
     contentArea.appendChild(avatarCol);
     contentArea.appendChild(rightCol);
@@ -356,12 +386,18 @@ async function renderBookmarks(bookmarks, total, isSearch = false) {
     const container = document.getElementById('tweets-container');
     if (!container) return;
     container.innerHTML = '';
+    
+    const loadingSpinner = document.getElementById('loading-spinner');
+    if (loadingSpinner) loadingSpinner.style.display = 'none';
+
     if (!bookmarks.length) {
         container.innerHTML = `<div class="py-20 text-center text-x-text-muted flex flex-col items-center gap-4"><p class="text-xl font-bold">${t('no_bookmarks')}</p></div>`;
         return;
     }
-    // buildCard is now async, so we must await all of them
+    
+    // パフォーマンス改善: すべてを非同期で待ってからではなく、生成された順にDOMに追加
     for (const bm of bookmarks) {
+        // buildCard() が同期関数になったので await は不要（もし非同期のままなら順次 append する）
         const card = await buildCard(bm);
         container.appendChild(card);
     }
@@ -469,36 +505,37 @@ window.closeModal = () => {
 };
 
 window.openSettingsModal = () => {
-    const langEl = document.getElementById('set-lang');
-    if (langEl) langEl.value = appSettings.lang;
-    const themeEl = document.getElementById('set-theme');
-    if (themeEl) themeEl.value = appSettings.theme || 'lights-out';
-    const compactEl = document.getElementById('set-compact');
-    if (compactEl) compactEl.checked = appSettings.compactMode;
-    const threadEl = document.getElementById('set-thread');
-    if (threadEl) threadEl.checked = appSettings.showThread;
-    const mediaEl = document.getElementById('set-media');
-    if (mediaEl) mediaEl.checked = appSettings.hideMedia;
+    const s = appSettings;
+    const ids = {
+        'set-lang': s.lang, 'set-theme': s.theme || 'lights-out',
+        'set-blur': s.blurMode, 'set-media': s.hideMedia,
+        'set-thread': s.showThread, 'set-autofetch': s.autoFetch,
+        'set-toolsexp': s.showExport, 'set-toolsbml': s.showBookmarklet
+    };
+    for (const [id, val] of Object.entries(ids)) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        if (el.type === 'checkbox') el.checked = val;
+        else el.value = val;
+    }
     document.getElementById('settings-modal')?.classList.remove('hidden');
 };
 
 window.closeSettingsModal = () => {
-    const langEl = document.getElementById('set-lang');
-    const themeEl = document.getElementById('set-theme');
-    const compactEl = document.getElementById('set-compact');
-    const threadEl = document.getElementById('set-thread');
-    const mediaEl = document.getElementById('set-media');
-    
-    if (langEl) appSettings.lang = langEl.value;
-    if (themeEl) appSettings.theme = themeEl.value;
-    if (compactEl) appSettings.compactMode = compactEl.checked;
-    if (threadEl) appSettings.showThread = threadEl.checked;
-    if (mediaEl) appSettings.hideMedia = mediaEl.checked;
-    
-    saveSettings();
-    if (window.location.pathname === '/') {
-        fetchBookmarks();
+    const s = appSettings;
+    const mapping = {
+        'set-lang': 'lang', 'set-theme': 'theme',
+        'set-blur': 'blurMode', 'set-media': 'hideMedia',
+        'set-thread': 'showThread', 'set-autofetch': 'autoFetch',
+        'set-toolsexp': 'showExport', 'set-toolsbml': 'showBookmarklet'
+    };
+    for (const [id, key] of Object.entries(mapping)) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        s[key] = el.type === 'checkbox' ? el.checked : el.value;
     }
+    saveSettings();
+    if (window.location.pathname === '/') fetchBookmarks();
     document.getElementById('settings-modal')?.classList.add('hidden');
 };
 
@@ -525,6 +562,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // 共通初期化
     applySettings();
     
+    // ブックマークレット URL の動的生成
+    const bmlBtn = document.getElementById('bookmarklet-btn');
+    if (bmlBtn) {
+        const origin = window.location.origin;
+        bmlBtn.href = `javascript:(function(){window.open('${origin}/?quick_save='+encodeURIComponent(location.href),'_blank','width=600,height=500');})();`;
+    }
+
     // パスに関わらずユーザー情報を取得
     Auth.request('/users/me').then(r => r.json()).then(user => {
         if (user.username) {

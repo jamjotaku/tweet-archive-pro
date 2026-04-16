@@ -22,7 +22,7 @@ from app.database import get_db
 from app.models import init_db, User
 from app.schemas import (
     BookmarkCreate, BookmarkResponse, BookmarkListResponse, BookmarkUpdate, 
-    UserCreate, UserResponse, Token, CategoryResponse, BatchLinkRequest, UserUpdate, GraphData
+    UserCreate, UserResponse, Token, CategoryResponse, BatchLinkRequest, UserUpdate, GraphData, BatchDeleteRequest
 )
 from app import crud
 from app.auth import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, verify_password
@@ -237,6 +237,17 @@ def batch_link_bookmarks(
     """複数のブックマークを一括で相互に関連付ける。"""
     crud.link_bookmarks(db, data.ids)
     return {"message": "Bookmarks linked successfully"}
+
+
+@app.post("/bookmarks/batch/delete")
+def batch_delete_bookmarks(
+    data: BatchDeleteRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """複数のブックマークを一括で削除する。"""
+    count = crud.batch_delete_bookmarks(db, current_user.id, data.ids)
+    return {"message": f"Successfully deleted {count} bookmarks"}
 
 
 @app.get("/bookmarks/search", response_model=list[BookmarkResponse])
