@@ -13,9 +13,13 @@
             </a>
             
             <nav class="flex flex-col gap-2 w-full items-center xl:items-start">
-                <a href="/" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max">
+                <a href="/" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max transition-colors">
                     <ion-icon name="home" class="text-3xl"></ion-icon>
                     <span class="hidden xl:inline" data-i18n="nav_home">Home</span>
+                </a>
+                <a href="/profile" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max transition-colors">
+                    <ion-icon name="person-outline" class="text-3xl"></ion-icon>
+                    <span class="hidden xl:inline" data-i18n="nav_profile">Profile</span>
                 </a>
                 <button onclick="openSettingsModal()" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max text-left transition-colors">
                     <ion-icon name="options" class="text-3xl"></ion-icon>
@@ -38,16 +42,21 @@
         </div>
         
         <!-- User Profile Area -->
-        <button id="logout-btn" class="p-3 hover:bg-x-dark rounded-full flex xl:inline-flex items-center gap-3 w-full xl:w-auto mt-auto justify-center xl:justify-start" title="Logout">
-            <div class="w-10 h-10 rounded-full bg-x-dark border border-x-border flex items-center justify-center shrink-0">
-                <ion-icon name="person" class="text-x-text text-xl"></ion-icon>
-            </div>
-            <div class="hidden xl:flex flex-col items-start truncate text-left">
-                <span class="font-bold text-[15px] leading-tight" id="user-display-name">User</span>
-                <span class="text-x-text-muted text-[15px] truncate max-w-[120px]">@<span id="username-handle">user</span></span>
-            </div>
-            <ion-icon name="log-out-outline" class="hidden xl:block ml-auto text-xl"></ion-icon>
-        </button>
+        <div class="w-full xl:w-auto mt-auto flex flex-col gap-2">
+            <a href="/profile" class="p-3 hover:bg-x-dark rounded-full flex xl:inline-flex items-center gap-3 w-full justify-center xl:justify-start group transition-colors">
+                <div class="w-10 h-10 rounded-full bg-x-dark border border-x-border flex items-center justify-center shrink-0 group-hover:border-x-blue">
+                    <ion-icon name="person" class="text-x-text text-xl"></ion-icon>
+                </div>
+                <div class="hidden xl:flex flex-col items-start truncate text-left">
+                    <span class="font-bold text-[15px] leading-tight" id="user-display-name">User</span>
+                    <span class="text-x-text-muted text-[15px] truncate max-w-[120px]">@<span id="username-handle">user</span></span>
+                </div>
+            </a>
+            <button id="logout-btn" class="p-2 hover:bg-red-500/10 text-x-text-muted hover:text-red-500 rounded-full flex items-center justify-center gap-2 transition-colors xl:mx-4" title="Logout">
+                <ion-icon name="log-out-outline" class="text-xl"></ion-icon>
+                <span class="hidden xl:inline text-sm font-bold">Log out</span>
+            </button>
+        </div>
     </header>
 
     <!-- Main Timeline -->

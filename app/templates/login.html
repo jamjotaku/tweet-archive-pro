@@ -37,10 +37,105 @@
             </button>
             
             <p class="text-center text-x-text-muted mt-8 mb-2">
-                Don't have an account? 
+                <span id="toggle-text">Don't have an account?</span>
                 <button type="button" id="toggle-mode-btn" class="text-x-blue hover:underline font-medium ml-1">Sign up</button>
             </p>
         </form>
     </div>
 </div>
+
+<script>
+    let isLogin = true;
+    const lang = localStorage.getItem('appSettings') ? JSON.parse(localStorage.getItem('appSettings')).lang : 'en';
+    const form = document.getElementById('auth-form');
+    const title = document.getElementById('form-title');
+    const submitBtn = document.getElementById('submit-btn');
+    const toggleBtn = document.getElementById('toggle-mode-btn');
+    const toggleText = document.getElementById('toggle-text');
+
+    toggleBtn.addEventListener('click', () => {
+        isLogin = !isLogin;
+        title.innerText = isLogin ? 'Log in to Archive' : 'Create an Account';
+        submitBtn.innerText = isLogin ? 'Log in' : 'Create Account';
+        toggleText.innerText = isLogin ? "Don't have an account?" : "Already have an account?";
+        toggleBtn.innerText = isLogin ? 'Sign up' : 'Log in';
+    });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+
+        submitBtn.disabled = true;
+        submitBtn.innerText = '...';
+
+        try {
+            if (isLogin) {
+                // Login
+                const formData = new FormData();
+                formData.append('username', username);
+                formData.append('password', password);
+                const res = await fetch('/token', { method: 'POST', body: formData });
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('token', data.access_token);
+                    window.location.href = '/';
+                } else {
+                    if (window.showToast) showToast(lang === 'ja' ? 'ログインに失敗しました。' : 'Invalid credentials', 'error');
+                    else alert('Invalid credentials');
+                }
+            } else {
+                // Register
+                const res = await fetch('/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (res.ok) {
+                    if (window.showToast) showToast(lang === 'ja' ? 'アカウントを作成しました！ログインしてください。' : 'Account created! Please log in.', 'success');
+                    else alert('Account created!');
+                    isLogin = true;
+                    if (toggleBtn) toggleBtn.click();
+                } else {
+                    const err = await res.json();
+                    if (window.showToast) showToast(err.detail || 'Registration failed', 'error');
+                    else alert(err.detail || 'Registration failed');
+                }
+            }
+        } catch (err) {
+            console.error(err);
+            if (window.showToast) showToast('An error occurred', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerText = isLogin ? (lang === 'ja' ? 'ログイン' : 'Log in') : (lang === 'ja' ? 'アカウント作成' : 'Create Account');
+        }
+    });
+
+    // Language handling
+    if (lang === 'ja') {
+        title.innerText = isLogin ? 'アーカイブにログイン' : 'アカウントを作成';
+        submitBtn.innerText = isLogin ? 'ログイン' : '登録する';
+        toggleText.innerText = isLogin ? "アカウントをお持ちでないですか？" : "既にアカウントをお持ちですか？";
+        toggleBtn.innerText = isLogin ? '新規登録' : 'ログイン';
+    }
+</script>
+
+<!-- Add Toast implementation if app.js is not loaded yet (for login page) -->
+<div id="toast-container" class="fixed bottom-10 left-1/2 transform -translate-x-1/2 z-50 flex flex-col gap-3"></div>
+<script>
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    const bgColor = type === 'error' ? 'bg-red-500' : 'bg-x-blue';
+    toast.className = `${bgColor} text-white px-6 py-3 rounded-full shadow-lg font-medium text-sm flex items-center gap-2 toast-enter z-[100] transition-all duration-300 transform`;
+    toast.innerHTML = `<ion-icon name="${type === 'error' ? 'alert-circle' : 'checkmark-circle'}" class="text-xl"></ion-icon> ${message}`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(20px)';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+</script>
 {% endblock %}

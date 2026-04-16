@@ -111,6 +111,31 @@ def login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
+@app.get("/users/me", response_model=UserResponse)
+def get_me(current_user: User = Depends(get_current_user)):
+    """ログイン中のユーザー情報を取得。"""
+    return current_user
+
+
+@app.get("/users/stats")
+def get_user_stats(
+    current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """プロフィールのための統計情報を取得。"""
+    return crud.get_user_stats(db, current_user.id)
+
+
+# ──────────────────────────────────────────────
+# UI ページルーティング
+# ──────────────────────────────────────────────
+
+@app.get("/profile")
+def profile_page(request: Request):
+    """プロフィールページを表示。"""
+    return templates.TemplateResponse(request=request, name="profile.html")
+
+
 # ──────────────────────────────────────────────
 # ブックマークエンドポイント (ログイン必須)
 # ──────────────────────────────────────────────

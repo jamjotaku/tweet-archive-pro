@@ -27,6 +27,28 @@ def create_user(db: Session, user: UserCreate) -> User:
     return db_user
 
 
+def get_user_stats(db: Session, user_id: int):
+    """ユーザーの統計情報（総数、カテゴリ数、参加日など）を取得。"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user: return None
+    
+    total_count = db.query(Bookmark).filter(Bookmark.user_id == user_id).count()
+    category_count = db.query(func.count(func.distinct(Bookmark.category))).filter(Bookmark.user_id == user_id).scalar()
+    
+    top_categories = db.query(
+        Bookmark.category, 
+        func.count(Bookmark.id).label("count")
+    ).filter(Bookmark.user_id == user_id).group_by(Bookmark.category).order_by(text("count DESC")).limit(5).all()
+    
+    return {
+        "username": user.username,
+        "joined_at": user.created_at,
+        "total_bookmarks": total_count,
+        "category_count": category_count,
+        "top_categories": [{"name": c[0], "count": c[1]} for c in top_categories]
+    }
+
+
 # --- ブックマーク ---
 def extract_tweet_id(url: str) -> str:
     """ツイートURLからtweet_idを抽出する。"""

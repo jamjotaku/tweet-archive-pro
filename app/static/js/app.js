@@ -54,7 +54,7 @@ function applySettings() {
 // ----------------------------------------------------
 const i18n = {
     en: {
-        nav_home: "Home", nav_settings: "Settings", nav_batch: "Selection", nav_gallery: "Gallery",
+        nav_home: "Home", nav_settings: "Settings", nav_batch: "Selection", nav_gallery: "Gallery", nav_profile: "Profile",
         header_title: "Bookmarks", search_placeholder: "Content, author, tags...",
         side_categories: "Categories", side_timeline: "Timeline", side_export: "Export Data",
         modal_save_title: "Save a Tweet", btn_save: "Save",
@@ -65,7 +65,7 @@ const i18n = {
         btn_batch_link: 'Link', related_title: 'Related bookmarks:'
     },
     ja: {
-        nav_home: "ホーム", nav_settings: "設定", nav_batch: "一括選択", nav_gallery: "ギャラリー",
+        nav_home: "ホーム", nav_settings: "設定", nav_batch: "一括選択", nav_gallery: "ギャラリー", nav_profile: "プロフィール",
         header_title: "保存済みツイート", search_placeholder: "本文、著者、タグで検索...",
         side_categories: 'カテゴリ',
         side_timeline: 'タイムライン',
@@ -501,8 +501,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // User Profile Info
         Auth.request('/users/me').then(r => r.json()).then(user => {
             if (user.username) {
-                document.getElementById('user-display-name').innerText = user.username;
-                document.getElementById('username-handle').innerText = user.username.toLowerCase();
+                const dName = document.getElementById('user-display-name');
+                const hName = document.getElementById('username-handle');
+                if (dName) dName.innerText = user.username;
+                if (hName) hName.innerText = user.username.toLowerCase();
+                
+                // Profile page elements if present
+                const pName = document.getElementById('profile-name');
+                const pHandle = document.getElementById('profile-handle');
+                if (pName) pName.innerText = user.username;
+                if (pHandle) pHandle.innerText = user.username.toLowerCase();
             }
         }).catch(() => {});
 
