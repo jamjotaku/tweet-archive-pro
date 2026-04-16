@@ -20,7 +20,7 @@ import requests
 
 from app.database import get_db
 from app.models import init_db, User
-from app.schemas import BookmarkCreate, BookmarkResponse, BookmarkListResponse, BookmarkUpdate, UserCreate, UserResponse, Token, CategoryResponse, BatchLinkRequest
+from app.schemas import BookmarkCreate, BookmarkResponse, BookmarkListResponse, BookmarkUpdate, UserCreate, UserResponse, Token, CategoryResponse, BatchLinkRequest, UserUpdate
 from app import crud
 from app.auth import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, verify_password
 from app.dependencies import get_current_user
@@ -115,6 +115,19 @@ def login_for_access_token(
 def get_me(current_user: User = Depends(get_current_user)):
     """ログイン中のユーザー情報を取得。"""
     return current_user
+
+
+@app.put("/users/me", response_model=UserResponse)
+def update_me(
+    update_data: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """ログイン中のユーザーのプロフィールを更新。"""
+    updated_user = crud.update_user_profile(db, current_user.id, update_data)
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return updated_user
 
 
 @app.get("/users/stats")

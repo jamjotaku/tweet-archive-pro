@@ -21,6 +21,8 @@ class User(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+    display_name = Column(String(128), nullable=True, default="")
+    bio = Column(Text, nullable=True, default="")
 
     bookmarks = relationship("Bookmark", back_populates="user", cascade="all, delete-orphan")
 

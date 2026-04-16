@@ -59,7 +59,7 @@
         <!-- Profile Info -->
         <div class="mt-20 px-4">
             <div class="flex justify-end">
-                <button class="border border-x-border hover:bg-x-dark px-4 py-2 rounded-full font-bold transition">Edit Profile</button>
+                <button onclick="openEditProfile()" class="border border-x-border hover:bg-x-dark px-4 py-2 rounded-full font-bold transition">Edit Profile</button>
             </div>
             
             <div class="mt-4">
@@ -67,8 +67,8 @@
                 <p class="text-x-text-muted text-[15px]">@<span id="profile-handle">user</span></p>
             </div>
 
-            <div class="mt-3 text-[15px] leading-normal text-x-text">
-                Custom archive management for power users. 🚀
+            <div class="mt-3 text-[15px] leading-normal text-x-text" id="profile-bio">
+                <!-- Bio will be loaded here -->
             </div>
 
             <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-x-text-muted text-[15px]">
@@ -113,6 +113,29 @@
     </aside>
 </div>
 
+<!-- Edit Profile Modal -->
+<div id="edit-profile-modal" class="fixed inset-0 bg-x-black/80 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-x-black border border-x-border rounded-2xl w-full max-w-[500px] flex flex-col overflow-hidden max-h-[90vh]">
+        <div class="flex items-center justify-between p-4 border-b border-x-border">
+            <div class="flex items-center gap-6">
+                <button onclick="closeEditProfile()" class="p-2 hover:bg-x-dark rounded-full transition"><ion-icon name="close" class="text-xl"></ion-icon></button>
+                <h2 class="text-xl font-bold">Edit profile</h2>
+            </div>
+            <button id="save-profile-btn" onclick="saveProfile()" class="bg-x-text text-x-black font-bold px-4 py-1.5 rounded-full hover:bg-gray-200 transition">Save</button>
+        </div>
+        <div class="p-4 space-y-4 overflow-y-auto">
+            <div class="relative group">
+                <input type="text" id="edit-name" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 focus:border-x-blue peer focus:outline-none" placeholder=" ">
+                <label for="edit-name" class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-x-blue">Name</label>
+            </div>
+            <div class="relative group">
+                <textarea id="edit-bio" rows="4" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 focus:border-x-blue peer focus:outline-none resize-none" placeholder=" "></textarea>
+                <label for="edit-bio" class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-4 peer-focus:top-2 peer-focus:text-x-blue">Bio</label>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="/static/js/app.js"></script>
 <script>
     // Profile specific logic
@@ -121,9 +144,19 @@
             const res = await Auth.request('/users/stats');
             if (res.ok) {
                 const stats = await res.json();
-                document.getElementById('header-name').innerText = stats.username;
-                document.getElementById('profile-name').innerText = stats.username;
+                
+                const displayName = stats.display_name || stats.username;
+                const bio = stats.bio || "No bio yet.";
+
+                document.getElementById('header-name').innerText = displayName;
+                document.getElementById('profile-name').innerText = displayName;
                 document.getElementById('profile-handle').innerText = stats.username.toLowerCase();
+                document.getElementById('profile-bio').innerText = bio;
+                
+                // For the edit modal
+                document.getElementById('edit-name').value = displayName;
+                document.getElementById('edit-bio').value = stats.bio || "";
+
                 document.getElementById('header-count').innerText = stats.total_bookmarks;
                 document.getElementById('stat-total').innerText = stats.total_bookmarks;
                 document.getElementById('stat-categories').innerText = stats.category_count;
@@ -149,6 +182,48 @@
             console.error(e);
         }
     });
+
+    function openEditProfile() {
+        document.getElementById('edit-profile-modal').classList.remove('hidden');
+    }
+
+    function closeEditProfile() {
+        document.getElementById('edit-profile-modal').classList.add('hidden');
+    }
+
+    async function saveProfile() {
+        const btn = document.getElementById('save-profile-btn');
+        btn.innerText = '...';
+        btn.disabled = true;
+
+        const displayName = document.getElementById('edit-name').value;
+        const bio = document.getElementById('edit-bio').value;
+
+        try {
+            const res = await Auth.request('/users/me', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ display_name: displayName, bio: bio })
+            });
+
+            if (res.ok) {
+                const user = await res.json();
+                document.getElementById('header-name').innerText = user.display_name || user.username;
+                document.getElementById('profile-name').innerText = user.display_name || user.username;
+                document.getElementById('profile-bio').innerText = user.bio || "No bio yet.";
+                closeEditProfile();
+                if(window.showToast) showToast('Profile updated!', 'success');
+            } else {
+                if(window.showToast) showToast('Failed to update profile.', 'error');
+            }
+        } catch (e) {
+            console.error(e);
+            if(window.showToast) showToast('An error occurred.', 'error');
+        } finally {
+            btn.innerText = 'Save';
+            btn.disabled = false;
+        }
+    }
 
 </script>
 {% endblock %}

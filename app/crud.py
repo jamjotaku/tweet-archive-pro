@@ -4,12 +4,13 @@ crud.py - データベース操作ロジック
 """
 
 import re
+import json
 import requests
 from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
 from sqlalchemy import text, func, or_
 from app.models import Bookmark, User, BookmarkRelation
-from app.schemas import BookmarkCreate, BookmarkUpdate, UserCreate
+from app.schemas import BookmarkCreate, BookmarkUpdate, UserCreate, UserUpdate
 from app.auth import get_password_hash
 
 
@@ -27,6 +28,20 @@ def create_user(db: Session, user: UserCreate) -> User:
     return db_user
 
 
+def update_user_profile(db: Session, user_id: int, update_data: UserUpdate) -> User:
+    """ユーザーのプロフィール（表示名、自己紹介）を更新する。"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return None
+    if update_data.display_name is not None:
+        user.display_name = update_data.display_name
+    if update_data.bio is not None:
+        user.bio = update_data.bio
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def get_user_stats(db: Session, user_id: int):
     """ユーザーの統計情報（総数、カテゴリ数、参加日など）を取得。"""
     user = db.query(User).filter(User.id == user_id).first()
@@ -42,6 +57,8 @@ def get_user_stats(db: Session, user_id: int):
     
     return {
         "username": user.username,
+        "display_name": user.display_name or "",
+        "bio": user.bio or "",
         "joined_at": user.created_at,
         "total_bookmarks": total_count,
         "category_count": category_count,

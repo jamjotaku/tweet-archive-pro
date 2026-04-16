@@ -16,10 +16,18 @@ class UserCreate(BaseModel):
     password: str
 
 
+class UserUpdate(BaseModel):
+    """ユーザー情報更新リクエストスキーマ"""
+    display_name: Optional[str] = None
+    bio: Optional[str] = None
+
+
 class UserResponse(BaseModel):
     """ユーザー情報のレスポンススキーマ"""
     id: int
     username: str
+    display_name: Optional[str] = ""
+    bio: Optional[str] = ""
 
     model_config = {"from_attributes": True}
 
