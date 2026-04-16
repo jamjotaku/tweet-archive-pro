@@ -76,7 +76,7 @@ def init_db():
         needed_cols = [
             ("author_name", "TEXT"), ("author_handle", "TEXT"),
             ("tweet_text", "TEXT"), ("media_url", "TEXT"),
-            ("thread_json", "TEXT")
+            ("thread_json", "TEXT"), ("note_html", "TEXT")
         ]
         
         for col, typ in needed_cols:
