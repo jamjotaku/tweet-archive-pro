@@ -604,6 +604,48 @@ window.closeEditModal = () => {
     document.getElementById('edit-modal')?.classList.add('hidden');
 };
 
+async function handleEditSubmit(e) {
+    e.preventDefault();
+    const modal = document.getElementById('edit-modal');
+    const id = modal.dataset.id;
+    if (!id) {
+        showToast("Error: No bookmark ID found", "error");
+        return;
+    }
+
+    const data = {
+        category: document.getElementById('edit-category').value,
+        tags: document.getElementById('edit-tags').value,
+        note: document.getElementById('edit-note').value
+    };
+
+    const updateBtn = document.getElementById('update-btn');
+    if (updateBtn) { updateBtn.disabled = true; updateBtn.innerText = "..."; }
+
+    try {
+        const res = await Auth.request(`/bookmarks/${id}`, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        if (res.ok) {
+            showToast(appSettings.lang === 'ja' ? "更新しました" : "Updated");
+            window.closeEditModal();
+            fetchBookmarks();
+            fetchCategories(); // カテゴリリストも更新
+        } else {
+            const errData = await res.json();
+            showToast(`Update failed: ${errData.detail || 'Unknown error'}`, "error");
+        }
+    } catch (err) {
+        console.error(err);
+        showToast("Network error occurred during update", "error");
+    } finally {
+        if (updateBtn) { updateBtn.disabled = false; updateBtn.innerText = t('btn_update'); }
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // 共通初期化
     applySettings();
@@ -629,67 +671,63 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }).catch(() => {});
 
-    // ホームページ専用の初期化
-    if (window.location.pathname === '/') {
-        if (!Auth.getToken()) window.location.href = '/login';
+    // パス判定に基づいた初期化（Homeページのみ）
+    const isHome = window.location.pathname === '/' || window.location.pathname === '/index.html' || (window.location.origin + window.location.pathname === API_BASE + '/');
+    
+    if (isHome) {
+        if (!Auth.getToken()) {
+            window.location.href = '/login';
+            return;
+        }
         fetchBookmarks();
-        
-        document.getElementById('search-input')?.addEventListener('input', (e) => {
-            const q = e.target.value.trim();
-            currentPage = 0;
-            if (q) {
-                // Perform Deep Search (FTS5) - author_name, tweet_text are handled by backend
-                Auth.request(`/bookmarks/search?q=${encodeURIComponent(q)}`).then(r => r.json()).then(d => {
-                    allBookmarks = d;
-                    renderBookmarks(allBookmarks, d.length, true);
-                });
-            } else { fetchBookmarks(); }
-        });
+    }
 
-        document.getElementById('add-bookmark-form')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const data = {
-                url: document.getElementById('url').value,
-                category: document.getElementById('category').value || '未分類',
-                tags: document.getElementById('tags').value,
-                note: document.getElementById('note').value
-            };
-            const btn = e.target.querySelector('button[type="submit"]');
-            btn.disabled = true; btn.innerText = "...";
-            // Deep Unroll & Search Update: auto_fetch / fetch_thread is true by default in API
+    // 検索イベント
+    document.getElementById('search-input')?.addEventListener('input', (e) => {
+        const q = e.target.value.trim();
+        currentPage = 0;
+        if (q) {
+            Auth.request(`/bookmarks/search?q=${encodeURIComponent(q)}`).then(r => r.json()).then(d => {
+                allBookmarks = d;
+                renderBookmarks(allBookmarks, d.length, true);
+            });
+        } else { fetchBookmarks(); }
+    });
+
+    // 保存フォーム
+    document.getElementById('add-bookmark-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = {
+            url: document.getElementById('url').value,
+            category: document.getElementById('category').value || '未分類',
+            tags: document.getElementById('tags').value,
+            note: document.getElementById('note').value
+        };
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true; btn.innerText = "...";
+        try {
             const res = await Auth.request('/bookmarks?auto_fetch=true&fetch_thread=true', { 
                 method: 'POST', 
                 headers: {'Content-Type': 'application/json'}, 
                 body: JSON.stringify(data)
             });
-            if (res.ok) { window.closeModal(); fetchBookmarks(); fetchTimelineStats(); }
-            btn.disabled = false; btn.innerText = t('btn_save');
-        });
-
-        // Edit Form
-        document.getElementById('edit-bookmark-form')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const id = document.getElementById('edit-modal').dataset.id;
-            const data = {
-                category: document.getElementById('edit-category').value,
-                tags: document.getElementById('edit-tags').value,
-                note: document.getElementById('edit-note').value
-            };
-            const res = await Auth.request(`/bookmarks/${id}`, {
-                method: 'PATCH',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            });
             if (res.ok) { 
-                showToast(appSettings.lang === 'ja' ? "更新しました" : "Updated");
-                window.closeEditModal(); 
+                showToast(appSettings.lang === 'ja' ? "保存しました" : "Saved");
+                window.closeModal(); 
                 fetchBookmarks(); 
+                fetchTimelineStats();
+                fetchCategories();
+            } else {
+                const err = await res.json();
+                showToast(`Save failed: ${err.detail || 'Error'}`, "error");
             }
-        });
+        } catch (e) { showToast("Network error", "error"); }
+        finally { btn.disabled = false; btn.innerText = t('btn_save'); }
+    });
 
-        // Logout
-        document.getElementById('logout-btn')?.addEventListener('click', () => {
-            Auth.logout();
-        });
-    }
+    // 編集フォーム (新しく分離した関数を呼び出す)
+    document.getElementById('edit-bookmark-form')?.addEventListener('submit', handleEditSubmit);
+
+    // ログアウト
+    document.getElementById('logout-btn')?.addEventListener('click', () => Auth.logout());
 });
