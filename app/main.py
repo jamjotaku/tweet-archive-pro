@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -78,6 +78,23 @@ def index_page(request: Request):
 def login_page(request: Request):
     """ログイン画面を返す。"""
     return templates.TemplateResponse(request=request, name="login.html")
+
+
+# ──────────────────────────────────────────────
+# PWA 関連
+# ──────────────────────────────────────────────
+
+@app.get("/manifest.json")
+def get_manifest():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "static", "manifest.json"))
+
+
+@app.get("/sw.js")
+def get_sw():
+    return FileResponse(
+        os.path.join(os.path.dirname(__file__), "static", "sw.js"),
+        media_type="application/javascript"
+    )
 
 
 # ──────────────────────────────────────────────

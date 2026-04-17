@@ -80,7 +80,8 @@ const i18n = {
         set_group_advanced: "Advanced Tools",
         set_autofetch: "Auto-Fetch Metadata", set_autofetch_desc: "Auto-fill missing details.",
         set_toolsexp: "Export Data Panel", set_toolsexp_desc: "Show export in sidebar.",
-        set_toolsbml: "Bookmarklet Panel", set_toolsbml_desc: "Quick save button in sidebar."
+        set_toolsbml: "Bookmarklet Panel", set_toolsbml_desc: "Quick save button in sidebar.",
+        card_edit: "Edit", card_sync: "Sync", card_delete: "Delete"
     },
     ja: {
         nav_home: "ホーム", nav_settings: "設定", nav_batch: "一括選択", nav_gallery: "ギャラリー", nav_profile: "プロフィール",
@@ -102,7 +103,8 @@ const i18n = {
         selected_items: "件選択中", confirm_batch_delete: "選択したアイテムを削除しますか？",
         btn_batch_link: 'リンク', related_title: '関連ブックマーク:',
         btn_bookmark: "保存", select_at_least_two: "2つ以上のアイテムを選択してください",
-        bookmarks_linked: "相互に関連付けました", btn_quick_save: "+ アーカイブに保存"
+        bookmarks_linked: "相互に関連付けました", btn_quick_save: "+ アーカイブに保存",
+        card_edit: "編集", card_sync: "同期", card_delete: "削除"
     }
 };
 
@@ -198,6 +200,24 @@ async function syncBookmark(id, buttonEl = null) {
     } catch (e) { showToast("Sync failed", "error"); }
     finally { if (buttonEl) { buttonEl.disabled = false; buttonEl.classList.remove('animate-spin'); } }
 }
+
+async function deleteBookmark(id) {
+    if (!confirm(appSettings.lang === 'ja' ? 'このブックマークを削除しますか？' : 'Delete this bookmark?')) return;
+    try {
+        const res = await Auth.request(`/bookmarks/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            showToast(appSettings.lang === 'ja' ? "削除しました" : "Deleted");
+            allBookmarks = allBookmarks.filter(b => b.id !== id);
+            totalBookmarks--;
+            renderBookmarks(allBookmarks, totalBookmarks, false);
+            fetchCategories();
+            fetchTimelineStats();
+        }
+    } catch (e) { showToast("Delete failed", "error"); }
+}
+
+window.deleteBookmark = deleteBookmark;
+window.syncBookmark = syncBookmark;
 
 async function batchDelete() {
     if (selectedIds.size === 0) return;
@@ -365,7 +385,6 @@ function buildCard(bm) {
         mDiv.innerHTML = mediaHtml;
         rightCol.appendChild(mDiv);
     }
-
     if (bm.note_html || bm.note) {
         const noteBox = document.createElement('div');
         noteBox.className = 'mt-3 p-3 bg-x-dark border border-x-border rounded-xl text-[15px] prose prose-invert prose-sm max-w-none text-x-text opacity-90 markdown-body';
@@ -374,6 +393,33 @@ function buildCard(bm) {
         if (window.hljs) noteBox.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
         rightCol.appendChild(noteBox);
     }
+
+    // Action Buttons (Edit, Sync, Delete)
+    const actionRow = document.createElement('div');
+    actionRow.className = 'flex items-center gap-6 mt-4 pt-2 border-t border-x-border/30 z-10';
+    
+    // Edit
+    const editBtn = document.createElement('button');
+    editBtn.className = 'text-x-text-muted hover:text-x-blue flex items-center gap-1.5 transition-colors group';
+    editBtn.innerHTML = `<ion-icon name="create-outline" class="text-lg"></ion-icon><span class="text-xs group-hover:underline" data-i18n="card_edit">Edit</span>`;
+    editBtn.onclick = (e) => { e.stopPropagation(); openEditModal(bm.id); };
+    
+    // Sync
+    const syncBtn = document.createElement('button');
+    syncBtn.className = 'text-x-text-muted hover:text-x-blue flex items-center gap-1.5 transition-colors group';
+    syncBtn.innerHTML = `<ion-icon name="sync-outline" class="text-lg"></ion-icon><span class="text-xs group-hover:underline" data-i18n="card_sync">Sync</span>`;
+    syncBtn.onclick = (e) => { e.stopPropagation(); syncBookmark(bm.id, syncBtn.querySelector('ion-icon')); };
+    
+    // Delete
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'text-x-text-muted hover:text-red-500 flex items-center gap-1.5 transition-colors group';
+    deleteBtn.innerHTML = `<ion-icon name="trash-outline" class="text-lg"></ion-icon><span class="text-xs group-hover:underline" data-i18n="card_delete">Delete</span>`;
+    deleteBtn.onclick = (e) => { e.stopPropagation(); deleteBookmark(bm.id); };
+
+    actionRow.appendChild(editBtn);
+    actionRow.appendChild(syncBtn);
+    actionRow.appendChild(deleteBtn);
+    rightCol.appendChild(actionRow);
 
     contentArea.appendChild(avatarCol);
     contentArea.appendChild(rightCol);
@@ -630,11 +676,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 note: document.getElementById('edit-note').value
             };
             const res = await Auth.request(`/bookmarks/${id}`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             });
-            if (res.ok) { window.closeEditModal(); fetchBookmarks(); }
+            if (res.ok) { 
+                showToast(appSettings.lang === 'ja' ? "更新しました" : "Updated");
+                window.closeEditModal(); 
+                fetchBookmarks(); 
+            }
         });
 
         // Logout

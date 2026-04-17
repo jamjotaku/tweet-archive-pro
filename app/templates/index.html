@@ -17,10 +17,6 @@
                     <ion-icon name="home" class="text-3xl"></ion-icon>
                     <span class="hidden xl:inline" data-i18n="nav_home">Home</span>
                 </a>
-                <a href="/profile" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max transition-colors">
-                    <ion-icon name="person-outline" class="text-3xl"></ion-icon>
-                    <span class="hidden xl:inline" data-i18n="nav_profile">Profile</span>
-                </a>
                 <a href="/graph" class="p-3 xl:px-4 xl:py-3 hover:bg-x-dark rounded-full inline-flex items-center gap-4 text-xl font-medium w-max transition-colors">
                     <ion-icon name="planet-outline" class="text-3xl font-bold text-x-blue"></ion-icon>
                     <span class="hidden xl:inline" data-i18n="nav_graph">Knowledge Graph</span>
@@ -56,7 +52,7 @@
                     <span class="text-x-text-muted text-[15px] truncate max-w-[120px]">@<span id="username-handle">user</span></span>
                 </div>
             </a>
-            <button id="logout-btn" class="p-2 hover:bg-red-500/10 text-x-text-muted hover:text-red-500 rounded-full flex items-center justify-center gap-2 transition-colors xl:mx-4" title="Logout">
+            <button onclick="Auth.logout()" class="p-2 hover:bg-red-500/10 text-x-text-muted hover:text-red-500 rounded-full flex items-center justify-center gap-2 transition-colors xl:mx-4" title="Logout">
                 <ion-icon name="log-out-outline" class="text-xl"></ion-icon>
                 <span class="hidden xl:inline text-sm font-bold">Log out</span>
             </button>

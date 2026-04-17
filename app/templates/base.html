@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}TweetArchive Pro{% endblock %}</title>
+    <!-- PWA Support -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1d9bf0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
     <!-- Tailwind CSS (CDN) with Typography -->
     <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
@@ -220,7 +226,10 @@
                     <textarea id="edit-note" rows="4" class="w-full bg-transparent border border-x-border rounded pt-6 pb-2 px-3 text-lg focus:border-x-blue peer resize-none focus:outline-none" placeholder=" "></textarea>
                     <label class="absolute left-3 top-2 text-x-text-muted text-sm transition-all peer-placeholder-shown:top-6 peer-focus:top-2 peer-focus:text-x-blue" data-i18n="input_note">Note / Memo</label>
                 </div>
-                <div class="flex justify-end border-t border-x-border pt-4">
+                <div class="flex justify-between border-t border-x-border pt-4">
+                    <button type="button" onclick="deleteBookmark(document.getElementById('edit-modal').dataset.id)" class="text-x-error hover:bg-red-500/10 px-4 py-2 rounded-full font-bold transition-colors">
+                        Delete Bookmark
+                    </button>
                     <button type="submit" id="update-btn" class="bg-x-blue hover:bg-x-blue-hover text-white font-bold py-2 px-6 rounded-full transition-colors disabled:opacity-50" data-i18n="btn_update">
                         Update
                     </button>
@@ -228,5 +237,16 @@
             </form>
         </div>
     </div>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('Service Worker registered!', reg))
+                    .catch(err => console.log('Service Worker registration failed: ', err));
+            });
+        }
+    </script>
 </body>
 </html>
