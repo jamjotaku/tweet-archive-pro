@@ -51,6 +51,10 @@ function applySettings() {
     const bml = document.getElementById('plugin-bookmarklet');
     if (exp) exp.classList.toggle('hidden', !appSettings.showExport);
     if (bml) bml.classList.toggle('hidden', !appSettings.showBookmarklet);
+    
+    // Main width for gallery
+    const mainArea = document.querySelector('.main-content-area');
+    if (mainArea) mainArea.classList.toggle('gallery-width', isGalleryMode);
 
     applyTranslations();
 }
@@ -291,14 +295,20 @@ window.exportData = exportData;
 // ----------------------------------------------------
 // Card Builder (Advanced)
 // ----------------------------------------------------
-function renderMedia(urlStr) {
+function renderMedia(bm) {
+    const urlStr = bm.media_url;
     if (!urlStr || appSettings.hideMedia) return '';
     const urls = urlStr.split(',').filter(u => u.trim());
     if (urls.length === 0) return '';
 
+    if (isGalleryMode) {
+        // Gallery mode: just return the first image as a simplified item
+        return `<div class="media-preview-gallery"><img src="${urls[0]}" loading="lazy" onclick="event.stopPropagation(); window.openLightboxForBookmark(${bm.id})"></div>`;
+    }
+
     let html = `<div class="media-grid" data-count="${urls.length}">`;
     urls.forEach(u => {
-        html += `<div class="media-item"><img src="${u}" loading="lazy" onclick="event.stopPropagation(); window.open('${u}', '_blank')"></div>`;
+        html += `<div class="media-item"><img src="${u}" loading="lazy" onclick="event.stopPropagation(); window.openLightbox('${u}', '${(bm.tweet_text || '').replace(/'/g, "\\'")}')"></div>`;
     });
     html += `</div>`;
     return html;
@@ -306,21 +316,21 @@ function renderMedia(urlStr) {
 
 function buildCard(bm) {
     const wrapper = document.createElement('article');
-    wrapper.className = `tweet-card border-b border-x-border relative group cursor-pointer flex flex-col`;
+    wrapper.className = `tweet-card border-b border-x-border relative group cursor-pointer flex flex-col ${isGalleryMode ? 'gallery-item' : ''}`;
     wrapper.dataset.id = bm.id;
     
-    // Main Body Wrapper
     const bodyWrapper = document.createElement('div');
-    bodyWrapper.className = 'flex relative w-full';
+    bodyWrapper.className = 'flex relative w-full h-full';
 
     bodyWrapper.onclick = (e) => {
         if (isBatchMode) {
             const cb = wrapper.querySelector('.batch-checkbox');
-            if (cb) {
-                cb.checked = !cb.checked;
-                cb.dispatchEvent(new Event('change'));
-            }
+            if (cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
             return;
+        }
+        if (isGalleryMode) {
+             window.openLightboxForBookmark(bm.id);
+             return;
         }
         if (!e.target.closest('button') && !e.target.closest('a') && !e.target.closest('img')) {
             window.open(bm.url, '_blank');
@@ -329,7 +339,7 @@ function buildCard(bm) {
 
     if (isBatchMode) {
         const checkArea = document.createElement('div');
-        checkArea.className = 'pl-4 pt-4 flex flex-col items-center z-10';
+        checkArea.className = `flex flex-col items-center z-[25] ${isGalleryMode ? 'absolute top-2 left-2' : 'pl-4 pt-4'}`;
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'batch-checkbox';
@@ -344,95 +354,109 @@ function buildCard(bm) {
         bodyWrapper.appendChild(checkArea);
     }
 
+    const mediaHtml = renderMedia(bm);
     const contentArea = document.createElement('div');
-    contentArea.className = 'flex-1 p-4 flex gap-3 min-w-0';
+    contentArea.className = isGalleryMode ? 'w-full h-full relative' : 'flex-1 p-4 flex gap-3 min-w-0';
 
-    const avatarCol = document.createElement('div');
-    avatarCol.className = 'shrink-0 z-10';
-    avatarCol.innerHTML = `<div class="w-12 h-12 rounded-full avatar-placeholder flex items-center justify-center text-white font-bold text-lg">${(bm.author_name || 'T').charAt(0).toUpperCase()}</div>`;
-    
-    const rightCol = document.createElement('div');
-    rightCol.className = 'flex-1 min-w-0 z-10';
-    
-    const hRow = document.createElement('div');
-    hRow.className = 'flex items-center gap-1 mb-0.5 flex-wrap';
-    const authorName = bm.author_name || (bm.url.split('/')[2] || 'Tweet');
-    const dateStr = new Date(bm.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    const displayHandle = (bm.author_handle || 'user').startsWith('@') ? bm.author_handle : `@${bm.author_handle || 'user'}`;
-    hRow.innerHTML = `
-        <span class="font-bold text-[15px] hover:underline truncate max-w-[150px]">${authorName}</span>
-        <span class="text-x-text-muted text-[15px]">${displayHandle} · ${dateStr}</span>
-        ${bm.category && bm.category !== '未分類' ? `<span class="ml-auto bg-x-blue/10 text-x-blue text-[10px] px-2 py-0.5 rounded-full font-bold uppercase transition hover:bg-x-blue/20" onclick="event.stopPropagation(); window.applyCategoryFilter('${bm.category}')">${bm.category}</span>` : ''}
-    `;
-    rightCol.appendChild(hRow);
+    if (isGalleryMode) {
+        // Gallery Layout (Pinterest-style)
+        contentArea.innerHTML = `
+            ${mediaHtml || '<div class="w-full aspect-video bg-x-dark flex items-center justify-center"><ion-icon name="document-text-outline" class="text-4xl text-x-border"></ion-icon></div>'}
+            <div class="gallery-caption">
+                <div class="flex items-center gap-2 mb-2">
+                    <div class="w-6 h-6 rounded-full avatar-placeholder flex items-center justify-center text-[10px] text-white font-bold">${(bm.author_name || 'T').charAt(0).toUpperCase()}</div>
+                    <span class="font-bold text-xs truncate">${bm.author_name || 'User'}</span>
+                </div>
+                <div class="text-xs line-clamp-3 text-x-text opacity-90 mb-1">${bm.tweet_text || ''}</div>
+                <div class="text-[10px] text-x-text-muted">@${bm.author_handle || 'user'}</div>
+            </div>
+        `;
+    } else {
+        // Normal List Layout (Keep as is)
+        const avatarCol = document.createElement('div');
+        avatarCol.className = 'shrink-0 z-10';
+        avatarCol.innerHTML = `<div class="w-12 h-12 rounded-full avatar-placeholder flex items-center justify-center text-white font-bold text-lg">${(bm.author_name || 'T').charAt(0).toUpperCase()}</div>`;
+        
+        const rightCol = document.createElement('div');
+        rightCol.className = 'flex-1 min-w-0 z-10';
+        
+        const hRow = document.createElement('div');
+        hRow.className = 'flex items-center gap-1 mb-0.5 flex-wrap';
+        const authorName = bm.author_name || (bm.url.split('/')[2] || 'Tweet');
+        const dateStr = new Date(bm.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        const displayHandle = (bm.author_handle || 'user').startsWith('@') ? bm.author_handle : `@${bm.author_handle || 'user'}`;
+        hRow.innerHTML = `
+            <span class="font-bold text-[15px] hover:underline truncate max-w-[150px]">${authorName}</span>
+            <span class="text-x-text-muted text-[15px]">${displayHandle} · ${dateStr}</span>
+            ${bm.category && bm.category !== '未分類' ? `<span class="ml-auto bg-x-blue/10 text-x-blue text-[10px] px-2 py-0.5 rounded-full font-bold uppercase transition hover:bg-x-blue/20" onclick="event.stopPropagation(); window.applyCategoryFilter('${bm.category}')">${bm.category}</span>` : ''}
+        `;
+        rightCol.appendChild(hRow);
 
-    const txt = document.createElement('div');
-    txt.className = 'text-[15px] leading-normal text-x-text mt-1 break-words';
-    txt.innerText = bm.tweet_text || '';
-    rightCol.appendChild(txt);
+        const txt = document.createElement('div');
+        txt.className = 'text-[15px] leading-normal text-x-text mt-1 break-words';
+        txt.innerText = bm.tweet_text || '';
+        rightCol.appendChild(txt);
 
-    if (bm.tags) {
-        const tagBox = document.createElement('div');
-        tagBox.className = 'flex flex-wrap gap-1 mt-2';
-        bm.tags.split(',').forEach(tag => {
-            if (!tag) return;
-            const tSpan = document.createElement('span');
-            tSpan.className = 'text-x-text-muted text-[12px] hover:text-x-blue transition cursor-pointer';
-            tSpan.innerText = `#${tag}`;
-            tSpan.onclick = (e) => {
-                e.stopPropagation();
-                const si = document.getElementById('search-input');
-                if (si) { si.value = tag; si.dispatchEvent(new Event('input')); }
-            };
-            tagBox.appendChild(tSpan);
-        });
-        rightCol.appendChild(tagBox);
+        if (bm.tags) {
+            const tagBox = document.createElement('div');
+            tagBox.className = 'flex flex-wrap gap-1 mt-2';
+            bm.tags.split(',').forEach(tag => {
+                if (!tag) return;
+                const tSpan = document.createElement('span');
+                tSpan.className = 'text-x-text-muted text-[12px] hover:text-x-blue transition cursor-pointer';
+                tSpan.innerText = `#${tag}`;
+                tSpan.onclick = (e) => {
+                    e.stopPropagation();
+                    const si = document.getElementById('search-input');
+                    if (si) { si.value = tag; si.dispatchEvent(new Event('input')); }
+                };
+                tagBox.appendChild(tSpan);
+            });
+            rightCol.appendChild(tagBox);
+        }
+        
+        if (mediaHtml) {
+            const mDiv = document.createElement('div');
+            mDiv.innerHTML = mediaHtml;
+            rightCol.appendChild(mDiv);
+        }
+        if (bm.note_html || bm.note) {
+            const noteBox = document.createElement('div');
+            noteBox.className = 'mt-3 p-3 bg-x-dark border border-x-border rounded-xl text-[15px] prose prose-invert prose-sm max-w-none text-x-text opacity-90 markdown-body';
+            if (bm.note_html) noteBox.innerHTML = bm.note_html;
+            else noteBox.innerText = bm.note;
+            if (window.hljs) noteBox.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
+            rightCol.appendChild(noteBox);
+        }
+
+        // Action Buttons
+        const actionRow = document.createElement('div');
+        actionRow.className = 'flex items-center gap-6 mt-4 pt-2 border-t border-x-border/30 z-10 action-buttons-list';
+        
+        const editBtn = document.createElement('button');
+        editBtn.className = 'text-x-text-muted hover:text-x-blue flex items-center gap-1.5 transition-colors group';
+        editBtn.innerHTML = `<ion-icon name="create-outline" class="text-lg"></ion-icon><span class="text-xs group-hover:underline" data-i18n="card_edit">Edit</span>`;
+        editBtn.onclick = (e) => { e.stopPropagation(); openEditModal(bm.id); };
+        
+        const syncBtn = document.createElement('button');
+        syncBtn.className = 'text-x-text-muted hover:text-x-blue flex items-center gap-1.5 transition-colors group';
+        syncBtn.innerHTML = `<ion-icon name="sync-outline" class="text-lg"></ion-icon><span class="text-xs group-hover:underline" data-i18n="card_sync">Sync</span>`;
+        syncBtn.onclick = (e) => { e.stopPropagation(); syncBookmark(bm.id, syncBtn.querySelector('ion-icon')); };
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'text-x-text-muted hover:text-red-500 flex items-center gap-1.5 transition-colors group';
+        deleteBtn.innerHTML = `<ion-icon name="trash-outline" class="text-lg"></ion-icon><span class="text-xs group-hover:underline" data-i18n="card_delete">Delete</span>`;
+        deleteBtn.onclick = (e) => { e.stopPropagation(); deleteBookmark(bm.id); };
+
+        actionRow.appendChild(editBtn);
+        actionRow.appendChild(syncBtn);
+        actionRow.appendChild(deleteBtn);
+        rightCol.appendChild(actionRow);
+
+        contentArea.appendChild(avatarCol);
+        contentArea.appendChild(rightCol);
     }
-    
-    const mediaHtml = renderMedia(bm.media_url);
-    if (mediaHtml) {
-        const mDiv = document.createElement('div');
-        mDiv.innerHTML = mediaHtml;
-        rightCol.appendChild(mDiv);
-    }
-    if (bm.note_html || bm.note) {
-        const noteBox = document.createElement('div');
-        noteBox.className = 'mt-3 p-3 bg-x-dark border border-x-border rounded-xl text-[15px] prose prose-invert prose-sm max-w-none text-x-text opacity-90 markdown-body';
-        if (bm.note_html) noteBox.innerHTML = bm.note_html;
-        else noteBox.innerText = bm.note;
-        if (window.hljs) noteBox.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
-        rightCol.appendChild(noteBox);
-    }
 
-    // Action Buttons (Edit, Sync, Delete)
-    const actionRow = document.createElement('div');
-    actionRow.className = 'flex items-center gap-6 mt-4 pt-2 border-t border-x-border/30 z-10';
-    
-    // Edit
-    const editBtn = document.createElement('button');
-    editBtn.className = 'text-x-text-muted hover:text-x-blue flex items-center gap-1.5 transition-colors group';
-    editBtn.innerHTML = `<ion-icon name="create-outline" class="text-lg"></ion-icon><span class="text-xs group-hover:underline" data-i18n="card_edit">Edit</span>`;
-    editBtn.onclick = (e) => { e.stopPropagation(); openEditModal(bm.id); };
-    
-    // Sync
-    const syncBtn = document.createElement('button');
-    syncBtn.className = 'text-x-text-muted hover:text-x-blue flex items-center gap-1.5 transition-colors group';
-    syncBtn.innerHTML = `<ion-icon name="sync-outline" class="text-lg"></ion-icon><span class="text-xs group-hover:underline" data-i18n="card_sync">Sync</span>`;
-    syncBtn.onclick = (e) => { e.stopPropagation(); syncBookmark(bm.id, syncBtn.querySelector('ion-icon')); };
-    
-    // Delete
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'text-x-text-muted hover:text-red-500 flex items-center gap-1.5 transition-colors group';
-    deleteBtn.innerHTML = `<ion-icon name="trash-outline" class="text-lg"></ion-icon><span class="text-xs group-hover:underline" data-i18n="card_delete">Delete</span>`;
-    deleteBtn.onclick = (e) => { e.stopPropagation(); deleteBookmark(bm.id); };
-
-    actionRow.appendChild(editBtn);
-    actionRow.appendChild(syncBtn);
-    actionRow.appendChild(deleteBtn);
-    rightCol.appendChild(actionRow);
-
-    contentArea.appendChild(avatarCol);
-    contentArea.appendChild(rightCol);
     bodyWrapper.appendChild(contentArea);
     wrapper.appendChild(bodyWrapper);
     return wrapper;
@@ -610,6 +634,110 @@ window.openEditModal = (id) => {
     modal.classList.remove('hidden');
 };
 
+// ----------------------------------------------------
+// Lightbox Implementation
+// ----------------------------------------------------
+let lightboxQueue = [];
+let currentIndex = -1;
+
+window.openLightbox = (url, caption = "") => {
+    const modal = document.getElementById('lightbox-modal');
+    const img = document.getElementById('lightbox-img');
+    const cap = document.getElementById('lightbox-caption');
+    if (!modal || !img) return;
+
+    img.src = url;
+    if (cap) {
+        if (caption) {
+            cap.innerText = caption;
+            cap.classList.remove('hidden');
+        } else {
+            cap.classList.add('hidden');
+        }
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => {
+        modal.classList.add('show');
+        modal.classList.remove('opacity-0');
+        modal.classList.add('opacity-100');
+        modal.classList.remove('pointer-events-none');
+    }, 10);
+    
+    // Update queue for sliding (get all images in current stream)
+    updateLightboxQueue(url);
+};
+
+window.openLightboxForBookmark = (id) => {
+    const bm = allBookmarks.find(b => b.id === id);
+    if (!bm || !bm.media_url) return;
+    const firstImg = bm.media_url.split(',')[0];
+    window.openLightbox(firstImg, bm.tweet_text);
+};
+
+function updateLightboxQueue(currentUrl) {
+    lightboxQueue = [];
+    allBookmarks.forEach(bm => {
+        if (bm.media_url) {
+            bm.media_url.split(',').forEach(u => {
+                if (u.trim()) lightboxQueue.push({ url: u.trim(), caption: bm.tweet_text });
+            });
+        }
+    });
+    currentIndex = lightboxQueue.findIndex(item => item.url === currentUrl);
+    updateLightboxButtons();
+}
+
+function updateLightboxButtons() {
+    const p = document.getElementById('lightbox-prev');
+    const n = document.getElementById('lightbox-next');
+    if (p) p.style.visibility = currentIndex > 0 ? 'visible' : 'hidden';
+    if (n) n.style.visibility = currentIndex < lightboxQueue.length - 1 ? 'visible' : 'hidden';
+}
+
+window.closeLightbox = () => {
+    const modal = document.getElementById('lightbox-modal');
+    if (!modal) return;
+    modal.classList.remove('show');
+    modal.classList.add('opacity-0');
+    modal.classList.remove('opacity-100');
+    modal.classList.add('pointer-events-none');
+    setTimeout(() => modal.classList.add('hidden'), 300);
+};
+
+window.prevLightbox = () => {
+    if (currentIndex > 0) {
+        currentIndex--;
+        const item = lightboxQueue[currentIndex];
+        const img = document.getElementById('lightbox-img');
+        const cap = document.getElementById('lightbox-caption');
+        img.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            img.src = item.url;
+            if (cap) cap.innerText = item.caption || "";
+            img.style.transform = 'scale(1)';
+            updateLightboxButtons();
+        }, 150);
+    }
+};
+
+window.nextLightbox = () => {
+    if (currentIndex < lightboxQueue.length - 1) {
+        currentIndex++;
+        const item = lightboxQueue[currentIndex];
+        const img = document.getElementById('lightbox-img');
+        const cap = document.getElementById('lightbox-caption');
+        img.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+            img.src = item.url;
+            if (cap) cap.innerText = item.caption || "";
+            img.style.transform = 'scale(1)';
+            updateLightboxButtons();
+        }, 150);
+    }
+};
+
 window.closeEditModal = () => {
     document.getElementById('edit-modal')?.classList.add('hidden');
 };
@@ -743,4 +871,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ログアウト
     document.getElementById('logout-btn')?.addEventListener('click', () => Auth.logout());
+
+    // Lightbox Events
+    document.getElementById('lightbox-prev')?.addEventListener('click', (e) => { e.stopPropagation(); window.prevLightbox(); });
+    document.getElementById('lightbox-next')?.addEventListener('click', (e) => { e.stopPropagation(); window.nextLightbox(); });
+    
+    document.addEventListener('keydown', (e) => {
+        const modal = document.getElementById('lightbox-modal');
+        if (modal && !modal.classList.contains('hidden')) {
+            if (e.key === 'Escape') closeLightbox();
+            if (e.key === 'ArrowLeft') prevLightbox();
+            if (e.key === 'ArrowRight') nextLightbox();
+        }
+    });
 });

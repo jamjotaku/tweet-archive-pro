@@ -200,31 +200,77 @@ button:active {
     border-bottom: 1px solid #2f3336;
 }
 
-/* Gallery View Mode */
-.gallery-mode #tweets-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1px;
-    background-color: #2f3336;
-    border-left: 1px solid #2f3336;
+/* Gallery View Mode (Pinterest-style Masonry) */
+.gallery-width {
+    max-width: 1300px !important;
+    transition: max-width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+.gallery-mode #tweets-container {
+    display: block;
+    columns: 2;
+    column-gap: 16px;
+    padding: 16px;
+    background-color: transparent;
+    border: none;
+}
+@media (min-width: 1024px) {
+    .gallery-mode #tweets-container { columns: 3; }
+}
+@media (min-width: 1440px) {
+    .gallery-mode #tweets-container { columns: 4; }
+}
+
 .gallery-mode .tweet-card {
-    border-bottom: none;
-    aspect-ratio: 1;
-    overflow: hidden;
+    break-inside: avoid;
+    margin-bottom: 20px;
+    border-radius: 16px;
+    border: 1px solid #2f3336;
     background-color: #000;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: zoom-in;
 }
 .gallery-mode .tweet-card:hover {
-    background-color: #080808;
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(29, 155, 240, 0.2);
+    background-color: #050505;
 }
+
+/* Gallery Overlay Style */
+.gallery-caption {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 40px 16px 16px;
+    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 20;
+}
+.gallery-mode .tweet-card:hover .gallery-caption {
+    opacity: 1;
+}
+
 .gallery-mode .media-preview, .gallery-mode .media-grid {
     margin-top: 0;
     border-radius: 0;
     border: none;
-    height: 100%;
 }
-/* Hide text in gallery mode unless hovered or simplified */
-.gallery-mode .blur-target, .gallery-mode .thread-connector { display: none; }
+
+/* Lightbox Overlay */
+#lightbox-modal {
+    background-color: rgba(0, 0, 0, 0.95);
+    backdrop-filter: blur(10px);
+    transition: opacity 0.3s ease;
+}
+#lightbox-modal.show {
+    opacity: 1;
+    display: flex !important;
+}
+
+.gallery-mode .blur-target, .gallery-mode .thread-connector, .gallery-mode .action-buttons-list { display: none; }
 
 /* Scrollbar */
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }

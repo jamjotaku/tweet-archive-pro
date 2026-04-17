@@ -238,6 +238,24 @@
         </div>
     </div>
 
+    <!-- Lightbox Modal -->
+    <div id="lightbox-modal" class="fixed inset-0 z-[100] hidden items-center justify-center opacity-0 selection-none pointer-events-none">
+        <div class="absolute inset-0 bg-black/90 backdrop-blur-xl" onclick="closeLightbox()"></div>
+        <button onclick="closeLightbox()" class="absolute top-6 right-6 text-white text-5xl hover:scale-110 transition z-[110] focus:outline-none p-2 rounded-full hover:bg-white/10">
+            <ion-icon name="close-outline"></ion-icon>
+        </button>
+        <button id="lightbox-prev" class="absolute left-4 md:left-8 text-white text-6xl hover:text-x-blue transition z-[110] focus:outline-none p-2 rounded-full hover:bg-white/10">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+        </button>
+        <div class="max-w-[95vw] max-h-screen flex flex-col items-center justify-center relative z-[105] pointer-events-auto">
+            <img id="lightbox-img" src="" class="object-contain max-h-[85vh] shadow-2xl rounded-sm transition-transform duration-300">
+            <div id="lightbox-caption" class="text-white mt-6 text-lg font-medium text-center px-6 max-w-2xl bg-black/40 backdrop-blur-md py-3 rounded-2xl border border-white/10 hidden"></div>
+        </div>
+        <button id="lightbox-next" class="absolute right-4 md:right-8 text-white text-6xl hover:text-x-blue transition z-[110] focus:outline-none p-2 rounded-full hover:bg-white/10">
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+        </button>
+    </div>
+
     <!-- PWA Service Worker Registration -->
     <script>
         if ('serviceWorker' in navigator) {
