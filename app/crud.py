@@ -129,6 +129,11 @@ def fetch_tweet_metadata(url: str, fetch_thread: bool = True) -> dict:
         except Exception:
             pass
 
+    # マルチ画像対応: 全画像URLをカンマ区切りで保存
+    media_list = [m.get("url") for m in data.get("media_extended", []) if m.get("url")]
+    if media_list:
+        meta["media_url"] = ",".join(media_list)
+
     # 2. スレッド（親ツイート）の取得
     thread_items = []
     if fetch_thread:
