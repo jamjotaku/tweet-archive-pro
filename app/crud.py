@@ -390,15 +390,21 @@ def update_bookmark(db: Session, user_id: int, bookmark_id: int, data: BookmarkU
     ).first()
     if not bookmark:
         return None
+    print(f"[CRUD] Updating bookmark {bookmark_id} for user {user_id}")
     if data.category is not None:
         bookmark.category = data.category
     if data.tags is not None:
         bookmark.tags = data.tags
     if data.note is not None:
+        print(f"[CRUD] Parsing markdown for note...")
         bookmark.note = data.note
         bookmark.note_html = parse_markdown(data.note)
+    
+    print(f"[CRUD] Committing changes to DB...")
     db.commit()
+    print(f"[CRUD] Refreshing object...")
     db.refresh(bookmark)
+    print(f"[CRUD] Update successful.")
     return bookmark
 
 
