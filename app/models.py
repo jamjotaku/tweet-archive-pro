@@ -50,6 +50,7 @@ class Bookmark(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+    tweet_created_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="bookmarks")
 
@@ -76,7 +77,8 @@ def init_db():
         needed_cols = [
             ("author_name", "TEXT"), ("author_handle", "TEXT"),
             ("tweet_text", "TEXT"), ("media_url", "TEXT"),
-            ("thread_json", "TEXT"), ("note_html", "TEXT")
+            ("thread_json", "TEXT"), ("note_html", "TEXT"),
+            ("tweet_created_at", "DATETIME")
         ]
         
         for col, typ in needed_cols:

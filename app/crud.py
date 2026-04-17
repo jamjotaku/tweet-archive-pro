@@ -3,6 +3,7 @@ crud.py - データベース操作ロジック
 ユーザーとブックマークのCRUD操作を提供する。
 """
 
+from datetime import datetime, timezone
 import re
 import json
 import requests
@@ -92,8 +93,15 @@ def extract_tweet_id(url: str) -> str:
 
 
 def fetch_tweet_metadata(url: str, fetch_thread: bool = True) -> dict:
-    """ツイートURLからメタデータ（著者、本文、マルチ画像、スレッド）を取得する。"""
-    meta = {"author_name": "", "author_handle": "", "tweet_text": "", "media_url": "", "thread_json": "[]"}
+    """ツイートURLからメタデータ（著者、本文、マルチ画像、スレッド、投稿日時）を取得する。"""
+    meta = {
+        "author_name": "", 
+        "author_handle": "", 
+        "tweet_text": "", 
+        "media_url": "", 
+        "thread_json": "[]",
+        "tweet_created_at": None
+    }
     tweet_id = extract_tweet_id(url)
     
     def fetch_single(tid):
@@ -114,10 +122,12 @@ def fetch_tweet_metadata(url: str, fetch_thread: bool = True) -> dict:
     meta["author_handle"] = data.get('user_screen_name', '')
     meta["tweet_text"] = data.get("text", "")
     
-    # マルチ画像対応: 全画像URLをカンマ区切りで保存
-    media_list = [m.get("url") for m in data.get("media_extended", []) if m.get("url")]
-    if media_list:
-        meta["media_url"] = ",".join(media_list)
+    # 投稿日時の取得 (date_epoch を使用)
+    if data.get("date_epoch"):
+        try:
+            meta["tweet_created_at"] = datetime.fromtimestamp(data.get("date_epoch"), tz=timezone.utc).replace(tzinfo=None)
+        except Exception:
+            pass
 
     # 2. スレッド（親ツイート）の取得
     thread_items = []
@@ -153,9 +163,9 @@ def get_bookmark_by_url(db: Session, user_id: int, url: str) -> Bookmark | None:
 
 def get_timeline_stats(db: Session, user_id: int):
     """年月別のブックマーク数を集計してタイムラインを生成。"""
-    # SQLite 依存の strftime を使用
+    # SQLite 依存の strftime を使用。投稿日時を優先。
     query = text("""
-        SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count 
+        SELECT strftime('%Y-%m', COALESCE(tweet_created_at, created_at)) as month, COUNT(*) as count 
         FROM bookmarks 
         WHERE user_id = :user_id 
         GROUP BY month 
@@ -178,6 +188,10 @@ def sync_bookmark_metadata(db: Session, user_id: int, bookmark_id: int) -> Bookm
         bookmark.tweet_text = meta["tweet_text"]
         bookmark.media_url = meta["media_url"]
         
+        # 投稿日時の更新
+        if meta.get("tweet_created_at"):
+            bookmark.tweet_created_at = meta["tweet_created_at"]
+            
         # メモが空なら著者名を入れておく
         if not bookmark.note:
             bookmark.note = f"By: {meta['author_name']}"
@@ -211,7 +225,8 @@ def create_bookmark(db: Session, data: BookmarkCreate, user_id: int, auto_fetch:
         author_handle=meta.get("author_handle", ""),
         tweet_text=meta.get("tweet_text", ""),
         media_url=meta.get("media_url", ""),
-        thread_json=meta.get("thread_json", "[]")
+        thread_json=meta.get("thread_json", "[]"),
+        tweet_created_at=meta.get("tweet_created_at")
     )
     db.add(db_bookmark)
     db.commit()
@@ -232,8 +247,8 @@ def get_bookmarks(
     if category:
         query = query.filter(Bookmark.category == category)
     if month:
-        # SQLite: strftime('%Y-%m', created_at) = '2024-10'
-        query = query.filter(text("strftime('%Y-%m', created_at) = :m")).params(m=month)
+        # SQLite: strftime('%Y-%m', COALESCE(tweet_created_at, created_at)) = '2024-10'
+        query = query.filter(text("strftime('%Y-%m', COALESCE(tweet_created_at, created_at)) = :m")).params(m=month)
         
     total = query.count()
     bookmarks = query.order_by(Bookmark.created_at.desc()).offset(skip).limit(limit).all()

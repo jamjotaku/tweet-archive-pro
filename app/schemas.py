@@ -90,6 +90,7 @@ class BookmarkResponse(BaseModel):
     media_url: str | None = ""
     thread_json: str | None = "[]"
     created_at: datetime
+    tweet_created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

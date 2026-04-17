@@ -388,7 +388,8 @@ function buildCard(bm) {
         const hRow = document.createElement('div');
         hRow.className = 'flex items-center gap-1 mb-0.5 flex-wrap';
         const authorName = bm.author_name || (bm.url.split('/')[2] || 'Tweet');
-        const dateStr = new Date(bm.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        const targetDate = bm.tweet_created_at || bm.created_at;
+        const dateStr = new Date(targetDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         const displayHandle = (bm.author_handle || 'user').startsWith('@') ? bm.author_handle : `@${bm.author_handle || 'user'}`;
         hRow.innerHTML = `
             <span class="font-bold text-[15px] hover:underline truncate max-w-[150px]">${authorName}</span>
