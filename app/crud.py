@@ -111,7 +111,7 @@ def fetch_tweet_metadata(url: str, fetch_thread: bool = True) -> dict:
         return meta
 
     meta["author_name"] = data.get("user_name", "")
-    meta["author_handle"] = f"@{data.get('user_screen_name', '')}"
+    meta["author_handle"] = data.get('user_screen_name', '')
     meta["tweet_text"] = data.get("text", "")
     
     # マルチ画像対応: 全画像URLをカンマ区切りで保存
@@ -133,7 +133,7 @@ def fetch_tweet_metadata(url: str, fetch_thread: bool = True) -> dict:
             thread_items.insert(0, {
                 "id": parent_id,
                 "author_name": p_data.get("user_name"),
-                "author_handle": f"@{p_data.get('user_screen_name')}",
+                "author_handle": p_data.get('user_screen_name'),
                 "text": p_data.get("text"),
                 "media": ",".join(p_media) if p_media else "",
                 "created_at": p_data.get("date")

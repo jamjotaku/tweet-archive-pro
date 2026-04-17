@@ -358,9 +358,10 @@ function buildCard(bm) {
     hRow.className = 'flex items-center gap-1 mb-0.5 flex-wrap';
     const authorName = bm.author_name || (bm.url.split('/')[2] || 'Tweet');
     const dateStr = new Date(bm.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const displayHandle = (bm.author_handle || 'user').startsWith('@') ? bm.author_handle : `@${bm.author_handle || 'user'}`;
     hRow.innerHTML = `
         <span class="font-bold text-[15px] hover:underline truncate max-w-[150px]">${authorName}</span>
-        <span class="text-x-text-muted text-[15px]">@${bm.author_handle || 'user'} · ${dateStr}</span>
+        <span class="text-x-text-muted text-[15px]">${displayHandle} · ${dateStr}</span>
         ${bm.category && bm.category !== '未分類' ? `<span class="ml-auto bg-x-blue/10 text-x-blue text-[10px] px-2 py-0.5 rounded-full font-bold uppercase transition hover:bg-x-blue/20" onclick="event.stopPropagation(); window.applyCategoryFilter('${bm.category}')">${bm.category}</span>` : ''}
     `;
     rightCol.appendChild(hRow);
