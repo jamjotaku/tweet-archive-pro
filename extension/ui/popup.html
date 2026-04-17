@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="common.css">
+</head>
+<body>
+    <div id="auth-section" class="auth-container hidden">
+        <h2 style="margin: 0 0 8px 0; font-size: 18px;">Login to TweetArchive</h2>
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
+        <button id="login-btn" class="btn-primary">Login</button>
+        <p id="auth-error" class="hidden" style="color: var(--x-error);"></p>
+    </div>
+    <div id="save-section" class="save-container hidden">
+        <div id="tweet-preview" class="preview-card">
+            <div id="author-preview" class="preview-author">Loading...</div>
+            <div id="text-preview" style="color: var(--x-text-muted);">Fetching...</div>
+        </div>
+        <select id="save-category"><option value="未分類">未分類</option></select>
+        <input type="text" id="save-tags" placeholder="tag1, tag2...">
+        <textarea id="save-note" rows="3" placeholder="Add a memo..."></textarea>
+        <button id="save-btn" class="btn-primary">Archive Tweet</button>
+    </div>
+    <div id="toast" class="toast hidden">Saved!</div>
+    <script src="api.js"></script>
+    <script src="popup.js"></script>
+</body>
+</html>

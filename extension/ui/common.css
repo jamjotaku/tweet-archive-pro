@@ -1,0 +1,39 @@
+:root {
+  --x-black: #000000;
+  --x-dark: #16181c;
+  --x-border: #2f3336;
+  --x-blue: #1d9bf0;
+  --x-blue-hover: #1a8cd8;
+  --x-text: #e7e9ea;
+  --x-text-muted: #71767b;
+  --x-error: #f4212e;
+}
+body {
+  margin: 0; padding: 0;
+  background-color: var(--x-black);
+  color: var(--x-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  width: 350px; height: 100%;
+}
+select, input, textarea {
+  background-color: var(--x-dark);
+  border: 1px solid var(--x-border);
+  color: var(--x-text);
+  border-radius: 4px; padding: 8px; outline: none;
+}
+.auth-container, .save-container {
+  padding: 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.btn-primary {
+  background-color: var(--x-text); color: var(--x-black);
+  border: none; border-radius: 9999px; padding: 10px; font-weight: bold; cursor: pointer;
+}
+.preview-card {
+  border: 1px solid var(--x-border); border-radius: 12px; padding: 12px;
+  background-color: var(--x-dark); font-size: 14px;
+}
+.hidden { display: none !important; }
+.toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background-color: var(--x-blue); color: white; padding: 8px 16px; border-radius: 20px; z-index: 1000;
+}
