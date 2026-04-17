@@ -94,6 +94,11 @@ def init_db():
 
 def create_fts5_table(connection):
     """FTS5検索テーブルと同期トリガーを作成する。"""
+    # トリガーの更新を確実にするため、一度削除する
+    connection.execute(text("DROP TRIGGER IF EXISTS bookmarks_ai"))
+    connection.execute(text("DROP TRIGGER IF EXISTS bookmarks_ad"))
+    connection.execute(text("DROP TRIGGER IF EXISTS bookmarks_au"))
+
     connection.execute(
         text("""
         CREATE VIRTUAL TABLE IF NOT EXISTS bookmarks_fts USING fts5(
