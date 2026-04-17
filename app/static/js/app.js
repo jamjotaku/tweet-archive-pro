@@ -81,7 +81,8 @@ const i18n = {
         set_autofetch: "Auto-Fetch Metadata", set_autofetch_desc: "Auto-fill missing details.",
         set_toolsexp: "Export Data Panel", set_toolsexp_desc: "Show export in sidebar.",
         set_toolsbml: "Bookmarklet Panel", set_toolsbml_desc: "Quick save button in sidebar.",
-        card_edit: "Edit", card_sync: "Sync", card_delete: "Delete"
+        card_edit: "Edit", card_sync: "Sync", card_delete: "Delete",
+        btn_update: "Update"
     },
     ja: {
         nav_home: "ホーム", nav_settings: "設定", nav_batch: "一括選択", nav_gallery: "ギャラリー", nav_profile: "プロフィール",
@@ -104,7 +105,8 @@ const i18n = {
         btn_batch_link: 'リンク', related_title: '関連ブックマーク:',
         btn_bookmark: "保存", select_at_least_two: "2つ以上のアイテムを選択してください",
         bookmarks_linked: "相互に関連付けました", btn_quick_save: "+ アーカイブに保存",
-        card_edit: "編集", card_sync: "同期", card_delete: "削除"
+        card_edit: "編集", card_sync: "同期", card_delete: "削除",
+        btn_update: "更新"
     }
 };
 
@@ -147,7 +149,13 @@ const Auth = {
         const token = this.getToken();
         const headers = { ...(options.headers || {}) };
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+        
+        // URL の正規化 (二重スラッシュの防止)
+        const cleanBase = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
+        const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+        const url = `${cleanBase}${cleanEndpoint}`;
+
+        const response = await fetch(url, { ...options, headers });
         if (response.status === 401 && !endpoint.includes('/token')) { this.logout(); }
         return response;
     }
@@ -607,9 +615,12 @@ window.closeEditModal = () => {
 async function handleEditSubmit(e) {
     e.preventDefault();
     const modal = document.getElementById('edit-modal');
-    const id = modal.dataset.id;
-    if (!id) {
-        showToast("Error: No bookmark ID found", "error");
+    // 数値として確実に取得
+    const id = parseInt(modal.dataset.id, 10);
+    
+    if (!id || isNaN(id)) {
+        showToast("Error: Invalid Bookmark ID", "error");
+        console.error("Invalid ID in modal dataset:", modal.dataset.id);
         return;
     }
 
