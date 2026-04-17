@@ -113,16 +113,14 @@ def create_fts5_table(connection):
     connection.execute(
         text("""
         CREATE TRIGGER IF NOT EXISTS bookmarks_ad AFTER DELETE ON bookmarks BEGIN
-            INSERT INTO bookmarks_fts(bookmarks_fts, rowid, user_id, tweet_id, category, tags, note, author_name, author_handle, tweet_text)
-            VALUES ('delete', old.id, old.user_id, old.tweet_id, old.category, old.tags, old.note, old.author_name, old.author_handle, old.tweet_text);
+            DELETE FROM bookmarks_fts WHERE rowid = old.id;
         END;
         """)
     )
     connection.execute(
         text("""
         CREATE TRIGGER IF NOT EXISTS bookmarks_au AFTER UPDATE ON bookmarks BEGIN
-            INSERT INTO bookmarks_fts(bookmarks_fts, rowid, user_id, tweet_id, category, tags, note, author_name, author_handle, tweet_text)
-            VALUES ('delete', old.id, old.user_id, old.tweet_id, old.category, old.tags, old.note, old.author_name, old.author_handle, old.tweet_text);
+            DELETE FROM bookmarks_fts WHERE rowid = old.id;
             INSERT INTO bookmarks_fts(rowid, user_id, tweet_id, category, tags, note, author_name, author_handle, tweet_text)
             VALUES (new.id, new.user_id, new.tweet_id, new.category, new.tags, new.note, new.author_name, new.author_handle, new.tweet_text);
         END;

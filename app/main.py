@@ -309,16 +309,11 @@ def update_bookmark(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    try:
-        updated = crud.update_bookmark(db, current_user.id, bookmark_id, data)
-        if not updated:
-            raise HTTPException(status_code=404, detail="Bookmark not found")
-        return updated
-    except Exception as e:
-        import traceback
-        error_detail = f"Backend Error: {str(e)}\n{traceback.format_exc()}"
-        print(error_detail) # サーバーログにも出力
-        raise HTTPException(status_code=500, detail=error_detail)
+    """現在のユーザーのブックマークを編集する。"""
+    updated = crud.update_bookmark(db, current_user.id, bookmark_id, data)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Bookmark not found")
+    return updated
 
 
 @app.post("/bookmarks/{bookmark_id}/sync", response_model=BookmarkResponse)
