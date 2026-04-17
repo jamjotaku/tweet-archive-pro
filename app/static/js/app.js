@@ -148,7 +148,12 @@ function showToast(message, type = 'success') {
 
 const Auth = {
     getToken() { return localStorage.getItem('token'); },
-    logout() { localStorage.removeItem('token'); window.location.href = '/login'; },
+    logout() { 
+        localStorage.removeItem('token'); 
+        if (window.location.pathname !== '/login') {
+            window.location.href = '/login'; 
+        }
+    },
     async request(endpoint, options = {}) {
         const token = this.getToken();
         const headers = { ...(options.headers || {}) };
@@ -798,19 +803,21 @@ document.addEventListener('DOMContentLoaded', () => {
         bmlBtn.href = `javascript:(function(){window.open('${origin}/?quick_save='+encodeURIComponent(location.href),'_blank','width=600,height=500');})();`;
     }
 
-    // パスに関わらずユーザー情報を取得
-    Auth.request('/users/me').then(r => r.json()).then(user => {
-        if (user.username) {
-            const elements = [
-                'user-display-name', 'username-handle', 
-                'profile-name', 'profile-handle', 'header-name'
-            ];
-            elements.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.innerText = id.includes('handle') ? user.username.toLowerCase() : user.username;
-            });
-        }
-    }).catch(() => {});
+    // パスに関わらずユーザー情報を取得 (トークンがある場合のみ)
+    if (Auth.getToken()) {
+        Auth.request('/users/me').then(r => r.json()).then(user => {
+            if (user.username) {
+                const elements = [
+                    'user-display-name', 'username-handle', 
+                    'profile-name', 'profile-handle', 'header-name'
+                ];
+                elements.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.innerText = id.includes('handle') ? user.username.toLowerCase() : user.username;
+                });
+            }
+        }).catch(() => {});
+    }
 
     // パス判定に基づいた初期化（Homeページのみ）
     const isHome = window.location.pathname === '/' || window.location.pathname === '/index.html' || (window.location.origin + window.location.pathname === API_BASE + '/');
