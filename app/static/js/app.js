@@ -155,6 +155,7 @@ const Auth = {
         const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
         const url = `${cleanBase}${cleanEndpoint}`;
 
+        console.debug(`[Auth] Request: ${options.method || 'GET'} ${url}`);
         const response = await fetch(url, { ...options, headers });
         if (response.status === 401 && !endpoint.includes('/token')) { this.logout(); }
         return response;
@@ -644,14 +645,14 @@ async function handleEditSubmit(e) {
             showToast(appSettings.lang === 'ja' ? "更新しました" : "Updated");
             window.closeEditModal();
             fetchBookmarks();
-            fetchCategories(); // カテゴリリストも更新
+            fetchCategories(); 
         } else {
             const errData = await res.json();
-            showToast(`Update failed: ${errData.detail || 'Unknown error'}`, "error");
+            showToast(`Update failed: ${errData.detail || 'Status ' + res.status}`, "error");
         }
     } catch (err) {
-        console.error(err);
-        showToast("Network error occurred during update", "error");
+        console.error('[Update Error]', err);
+        showToast(`Network error: ${err.message}`, "error");
     } finally {
         if (updateBtn) { updateBtn.disabled = false; updateBtn.innerText = t('btn_update'); }
     }
