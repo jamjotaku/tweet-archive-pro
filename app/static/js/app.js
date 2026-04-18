@@ -135,6 +135,20 @@ async function refreshSidebar() {
     const catList = document.getElementById('categories-list');
     const timeList = document.getElementById('timeline-list');
     
+    // User Profile Info
+    try {
+        const uRes = await Auth.request('/users/me');
+        if (uRes.ok) {
+            const user = await uRes.json();
+            const dnEl = document.getElementById('user-display-name');
+            const unEl = document.getElementById('username-handle');
+            if (dnEl) dnEl.innerText = user.display_name || user.username;
+            if (unEl) unEl.innerText = user.username.toLowerCase();
+        }
+    } catch (err) {
+        console.error('[App] User fetch error:', err);
+    }
+
     // Categories
     const cRes = await Auth.request('/bookmarks/categories');
     if (cRes.ok && catList) {
