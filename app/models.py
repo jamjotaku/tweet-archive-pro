@@ -104,7 +104,8 @@ def create_fts5_table(connection):
     connection.execute(
         text("""
         CREATE VIRTUAL TABLE IF NOT EXISTS bookmarks_fts USING fts5(
-            user_id UNINDEXED, tweet_id UNINDEXED, category, tags, note, author_name, author_handle, tweet_text
+            user_id UNINDEXED, tweet_id UNINDEXED, category, tags, note, author_name, author_handle, tweet_text,
+            tokenize='unicode61'
         );
         """)
     )

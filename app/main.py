@@ -180,15 +180,15 @@ def graph_page(request: Request):
 # ──────────────────────────────────────────────
 
 @app.post("/bookmarks", response_model=BookmarkResponse)
-def create_bookmark(
+async def create_bookmark(
     data: BookmarkCreate,
     auto_fetch: bool = True,
     fetch_thread: bool = True,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """新しいブックマークを作成する。"""
-    return crud.create_bookmark(db, data, current_user.id, auto_fetch=auto_fetch, fetch_thread=fetch_thread)
+    """新しいブックマークを非同期に作成する。"""
+    return await crud.create_bookmark(db, data, current_user.id, auto_fetch=auto_fetch, fetch_thread=fetch_thread)
 
 
 @app.get("/bookmarks/stats/timeline")
@@ -317,13 +317,13 @@ def update_bookmark(
 
 
 @app.post("/bookmarks/{bookmark_id}/sync", response_model=BookmarkResponse)
-def sync_bookmark(
+async def sync_bookmark(
     bookmark_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """外部APIからメタデータを再取得してブックマークを最新の状態にする。"""
-    bookmark = crud.sync_bookmark_metadata(db, current_user.id, bookmark_id)
+    """外部APIからメタデータを非同期に再取得してブックマークを最新の状態にする。"""
+    bookmark = await crud.sync_bookmark_metadata(db, current_user.id, bookmark_id)
     if not bookmark:
         raise HTTPException(status_code=404, detail="ブックマークが見つかりません、または同期に失敗しました。")
     return bookmark

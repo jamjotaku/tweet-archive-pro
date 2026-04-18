@@ -6,7 +6,7 @@ crud.py - データベース操作ロジック
 from datetime import datetime, timezone
 import re
 import json
-import requests
+import httpx
 import markdown
 import bleach
 from bs4 import BeautifulSoup
@@ -92,8 +92,8 @@ def extract_tweet_id(url: str) -> str:
     return match.group(1)
 
 
-def fetch_tweet_metadata(url: str, fetch_thread: bool = True) -> dict:
-    """ツイートURLからメタデータ（著者、本文、マルチ画像、スレッド、投稿日時）を取得する。"""
+async def fetch_tweet_metadata(url: str, fetch_thread: bool = True) -> dict:
+    """ツイートURLからメタデータ（著者、本文、マルチ画像、スレッド、投稿日時）を非同期に取得する。"""
     meta = {
         "author_name": "", 
         "author_handle": "", 
@@ -104,60 +104,60 @@ def fetch_tweet_metadata(url: str, fetch_thread: bool = True) -> dict:
     }
     tweet_id = extract_tweet_id(url)
     
-    def fetch_single(tid):
+    async def fetch_single(tid, client: httpx.AsyncClient):
         try:
-            res = requests.get(f"https://api.vxtwitter.com/status/{tid}", timeout=5)
+            res = await client.get(f"https://api.vxtwitter.com/status/{tid}", timeout=10)
             if res.status_code == 200:
                 return res.json()
         except Exception:
             pass
         return None
 
-    # 1. ターゲットのツイートを取得
-    data = fetch_single(tweet_id)
-    if not data:
-        return meta
+    async with httpx.AsyncClient() as client:
+        # 1. ターゲットのツイートを取得
+        data = await fetch_single(tweet_id, client)
+        if not data:
+            return meta
 
-    meta["author_name"] = data.get("user_name", "")
-    meta["author_handle"] = data.get('user_screen_name', '')
-    meta["tweet_text"] = data.get("text", "")
-    
-    # 投稿日時の取得 (date_epoch を使用)
-    if data.get("date_epoch"):
-        try:
-            meta["tweet_created_at"] = datetime.fromtimestamp(data.get("date_epoch"), tz=timezone.utc).replace(tzinfo=None)
-        except Exception:
-            pass
+        meta["author_name"] = data.get("user_name", "")
+        meta["author_handle"] = data.get('user_screen_name', '')
+        meta["tweet_text"] = data.get("text", "")
+        
+        # 投稿日時の取得 (date_epoch を使用)
+        if data.get("date_epoch"):
+            try:
+                meta["tweet_created_at"] = datetime.fromtimestamp(data.get("date_epoch"), tz=timezone.utc).replace(tzinfo=None)
+            except Exception:
+                pass
 
-    # マルチ画像対応: 全画像URLをカンマ区切りで保存
-    media_list = [m.get("url") for m in data.get("media_extended", []) if m.get("url")]
-    if media_list:
-        meta["media_url"] = ",".join(media_list)
+        # マルチ画像・動画対応
+        media_list = [m.get("url") for m in data.get("media_extended", []) if m.get("url")]
+        if media_list:
+            meta["media_url"] = ",".join(media_list)
 
-    # 2. スレッド（親ツイート）の取得
-    thread_items = []
-    if fetch_thread:
-        parent_id = data.get("in_reply_to_status_id")
-        # 最大3世代まで親を辿る (簡易版)
-        for _ in range(3):
-            if not parent_id: break
-            p_data = fetch_single(parent_id)
-            if not p_data: break
-            
-            p_media = [m.get("url") for m in p_data.get("media_extended", []) if m.get("url")]
-            thread_items.insert(0, {
-                "id": parent_id,
-                "author_name": p_data.get("user_name"),
-                "author_handle": p_data.get('user_screen_name'),
-                "text": p_data.get("text"),
-                "media": ",".join(p_media) if p_media else "",
-                "created_at": p_data.get("date")
-            })
-            parent_id = p_data.get("in_reply_to_status_id")
-            
-    if thread_items:
-        meta["thread_json"] = json.dumps(thread_items, ensure_ascii=False)
-    
+        # 2. スレッド（親ツイート）の取得
+        thread_items = []
+        if fetch_thread:
+            parent_id = data.get("in_reply_to_status_id")
+            for _ in range(3):
+                if not parent_id: break
+                p_data = await fetch_single(parent_id, client)
+                if not p_data: break
+                
+                p_media = [m.get("url") for m in p_data.get("media_extended", []) if m.get("url")]
+                thread_items.insert(0, {
+                    "id": parent_id,
+                    "author_name": p_data.get("user_name"),
+                    "author_handle": p_data.get('user_screen_name'),
+                    "text": p_data.get("text"),
+                    "media": ",".join(p_media) if p_media else "",
+                    "created_at": p_data.get("date")
+                })
+                parent_id = p_data.get("in_reply_to_status_id")
+                
+        if thread_items:
+            meta["thread_json"] = json.dumps(thread_items, ensure_ascii=False)
+        
     return meta
 
 
@@ -180,13 +180,13 @@ def get_timeline_stats(db: Session, user_id: int):
     return [{"month": row[0], "count": row[1]} for row in result]
 
 
-def sync_bookmark_metadata(db: Session, user_id: int, bookmark_id: int) -> Bookmark | None:
-    """既存のブックマークのメタデータを外部APIから再取得して更新する。"""
+async def sync_bookmark_metadata(db: Session, user_id: int, bookmark_id: int) -> Bookmark | None:
+    """既存のブックマークのメタデータを外部APIから非同期に再取得して更新する。"""
     bookmark = db.query(Bookmark).filter(Bookmark.id == bookmark_id, Bookmark.user_id == user_id).first()
     if not bookmark:
         return None
     
-    meta = fetch_tweet_metadata(bookmark.url)
+    meta = await fetch_tweet_metadata(bookmark.url)
     if meta["author_name"]:
         bookmark.author_name = meta["author_name"]
         bookmark.author_handle = meta["author_handle"]
@@ -206,8 +206,8 @@ def sync_bookmark_metadata(db: Session, user_id: int, bookmark_id: int) -> Bookm
     return bookmark
 
 
-def create_bookmark(db: Session, data: BookmarkCreate, user_id: int, auto_fetch: bool = False, fetch_thread: bool = True) -> Bookmark:
-    """ユーザーの新しいブックマークを作成する。重複チェック付き。"""
+async def create_bookmark(db: Session, data: BookmarkCreate, user_id: int, auto_fetch: bool = False, fetch_thread: bool = True) -> Bookmark:
+    """ユーザーの新しいブックマークを非同期に作成する。重複チェック付き。"""
     # 1. 重複チェック
     existing = get_bookmark_by_url(db, user_id, data.url)
     if existing:
@@ -216,7 +216,7 @@ def create_bookmark(db: Session, data: BookmarkCreate, user_id: int, auto_fetch:
     tweet_id = extract_tweet_id(data.url)
     meta = {}
     if auto_fetch:
-        meta = fetch_tweet_metadata(data.url, fetch_thread=fetch_thread)
+        meta = await fetch_tweet_metadata(data.url, fetch_thread=fetch_thread)
 
     db_bookmark = Bookmark(
         user_id=user_id,

@@ -1,949 +1,190 @@
 /**
- * app.js - Deep Unroll & Search Update
+ * app.js - Main Entry Point (Refactored to ES Modules)
  */
+import { Auth } from './modules/api.js';
+import { state, saveSettings } from './modules/state.js';
+import { showToast, t, applySettings } from './modules/ui.js';
+import { buildCard } from './modules/components.js';
 
-const API_BASE = window.location.origin;
+// --- Page & Data Loading ---
 
-// ----------------------------------------------------
-// 1. Settings & State
-// ----------------------------------------------------
-const defaultSettings = {
-    lang: 'ja',
-    theme: 'lights-out',
-    blurMode: false,
-    compactMode: false,
-    hideMedia: false,
-    showThread: true,
-    autoFetch: true,
-    showExport: false,
-    showBookmarklet: false,
-};
+async function fetchBookmarks(skip = 0, append = false) {
+    if (state.isLoading) return;
+    state.isLoading = true;
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner && !append) spinner.classList.remove('hidden');
 
-let appSettings = { ...defaultSettings };
-try {
-    const saved = localStorage.getItem('appSettings');
-    if (saved) appSettings = { ...appSettings, ...JSON.parse(saved) };
-} catch(e) {}
-
-let isBatchMode = false;
-let isGalleryMode = false;
-let selectedIds = new Set();
-let currentPage = 0;
-let totalBookmarks = 0;
-let allBookmarks = [];
-let isLoading = false;
-let currentFilter = { type: null, value: null }; // {type: 'month'|'category', value: '2024-10'}
-const PAGE_SIZE = 20;
-
-function saveSettings() {
-    localStorage.setItem('appSettings', JSON.stringify(appSettings));
-    applySettings();
-}
-
-function applySettings() {
-    document.body.classList.toggle('theme-dim', appSettings.theme === 'dim');
-    document.body.classList.toggle('blur-mode', appSettings.blurMode);
-    document.body.classList.toggle('compact-mode', appSettings.compactMode);
-    document.body.classList.toggle('gallery-mode', isGalleryMode);
-    
-    // Sidebar Plugins visibility
-    const exp = document.getElementById('plugin-export');
-    const bml = document.getElementById('plugin-bookmarklet');
-    if (exp) exp.classList.toggle('hidden', !appSettings.showExport);
-    if (bml) bml.classList.toggle('hidden', !appSettings.showBookmarklet);
-    
-    // Main width for gallery
-    const mainArea = document.querySelector('.main-content-area');
-    if (mainArea) mainArea.classList.toggle('gallery-width', isGalleryMode);
-
-    applyTranslations();
-}
-
-// ----------------------------------------------------
-// 2. i18n
-// ----------------------------------------------------
-const i18n = {
-    en: {
-        nav_home: "Home", nav_settings: "Settings", nav_batch: "Selection", nav_gallery: "Gallery", nav_profile: "Profile",
-        header_title: "Bookmarks", search_placeholder: "Content, author, tags...",
-        side_categories: "Categories", side_timeline: "Timeline", side_export: "Export Data",
-        modal_save_title: "Save a Tweet", btn_save: "Save",
-        set_group_general: "General UI", set_lang: "Language", set_group_view: "Tweet View",
-        set_compact: "Compact Mode", set_thread: "Show Thread (Unroll)", set_media: "Hide Media",
-        no_bookmarks: "No bookmarks found", btn_batch_sync: "Sync", btn_batch_delete: "Delete",
-        selected_items: "selected", confirm_batch_delete: "Delete selected items?",
-        btn_batch_link: 'Link', related_title: 'Related bookmarks:',
-        btn_bookmark: "Bookmark", select_at_least_two: "Select at least 2 items",
-        bookmarks_linked: "Bookmarks linked", btn_quick_save: "+ Save to Archive",
-        modal_settings_title: "Settings & Extensions",
-        set_group_general: "General UI", set_lang: "Language", set_lang_desc: "Interface language.",
-        set_theme: "Theme Mode", set_theme_desc: "Change contrast levels.",
-        set_blur: "Privacy Blur", set_blur_desc: "Blur card content.",
-        set_group_view: "Content Display", set_media: "Hide Media", set_media_desc: "Save data in cards.",
-        set_thread: "Show Thread", set_thread_desc: "Unroll parent tweets.",
-        set_group_advanced: "Advanced Tools",
-        set_autofetch: "Auto-Fetch Metadata", set_autofetch_desc: "Auto-fill missing details.",
-        set_toolsexp: "Export Data Panel", set_toolsexp_desc: "Show export in sidebar.",
-        set_toolsbml: "Bookmarklet Panel", set_toolsbml_desc: "Quick save button in sidebar.",
-        card_edit: "Edit", card_sync: "Sync", card_delete: "Delete",
-        btn_update: "Update"
-    },
-    ja: {
-        nav_home: "ホーム", nav_settings: "設定", nav_batch: "一括選択", nav_gallery: "ギャラリー", nav_profile: "プロフィール",
-        header_title: "保存済みツイート", search_placeholder: "本文、著者、タグで検索...",
-        side_categories: 'カテゴリ', side_timeline: 'タイムライン', side_export: 'エクスポート', side_export_desc: '全データをダウンロード',
-        side_bookmarklet: 'ブックマークレット', side_bookmarklet_desc: 'ボタンをブックマークバーにドラッグして、ツイートを即座に保存。',
-        modal_save_title: "ツイートを保存", btn_save: "保存する",
-        modal_settings_title: "設定と拡張機能",
-        set_group_general: "共通 UI", set_lang: "言語", set_lang_desc: "インターフェースの言語",
-        set_theme: "テーマ", set_theme_desc: "ダークモードのコントラストを調整",
-        set_blur: "プライバシーぼかし", set_blur_desc: "ホバーした時のみ表示",
-        set_group_view: "表示モード", set_media: "メディア非表示", set_media_desc: "画像の読み込みを制限",
-        set_thread: "スレッド展開", set_thread_desc: "親ツイートも表示",
-        set_group_advanced: "高度な設定",
-        set_autofetch: "自動メタデータ取得", set_autofetch_desc: "保存時に著者名を自動補完",
-        set_toolsexp: "データエクスポート", set_toolsexp_desc: "サイドバーに表示",
-        set_toolsbml: "ブックマークレット", set_toolsbml_desc: "サイドバーに表示",
-        no_bookmarks: '保存されたブックマークがありません。', btn_batch_sync: "一括同期", btn_batch_delete: "一括削除",
-        selected_items: "件選択中", confirm_batch_delete: "選択したアイテムを削除しますか？",
-        btn_batch_link: 'リンク', related_title: '関連ブックマーク:',
-        btn_bookmark: "保存", select_at_least_two: "2つ以上のアイテムを選択してください",
-        bookmarks_linked: "相互に関連付けました", btn_quick_save: "+ アーカイブに保存",
-        card_edit: "編集", card_sync: "同期", card_delete: "削除",
-        btn_update: "更新"
-    }
-};
-
-function t(key) { return (i18n[appSettings.lang] || i18n['en'])[key] || key; }
-
-function applyTranslations() {
-    const d = i18n[appSettings.lang] || i18n['en'];
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-        const key = el.getAttribute('data-i18n');
-        if (d[key]) el.innerText = d[key];
-    });
-    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-        const key = el.getAttribute('data-i18n-placeholder');
-        if (d[key]) el.placeholder = d[key];
-    });
-    updateBatchCount();
-}
-
-// ----------------------------------------------------
-// UI Logic
-// ----------------------------------------------------
-function showToast(message, type = 'success') {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-    const toast = document.createElement('div');
-    const bgColor = type === 'error' ? 'bg-red-500' : 'bg-x-blue';
-    toast.className = `${bgColor} text-white px-6 py-3 rounded-full shadow-lg font-medium text-sm flex items-center gap-2 toast-enter z-[100]`;
-    toast.innerHTML = `<ion-icon name="${type === 'error' ? 'alert-circle' : 'checkmark-circle'}" class="text-xl"></ion-icon> ${message}`;
-    container.appendChild(toast);
-    setTimeout(() => {
-        toast.classList.replace('toast-enter', 'toast-exit');
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-}
-
-const Auth = {
-    getToken() { return localStorage.getItem('token'); },
-    logout() { 
-        localStorage.removeItem('token'); 
-        if (window.location.pathname !== '/login') {
-            window.location.href = '/login'; 
-        }
-    },
-    async request(endpoint, options = {}) {
-        const token = this.getToken();
-        const headers = { ...(options.headers || {}) };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        
-        // URL の正規化 (二重スラッシュの防止)
-        const cleanBase = API_BASE.endsWith('/') ? API_BASE.slice(0, -1) : API_BASE;
-        const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-        const url = `${cleanBase}${cleanEndpoint}`;
-
-        console.debug(`[Auth] Request: ${options.method || 'GET'} ${url}`);
-        const response = await fetch(url, { ...options, headers });
-        if (response.status === 401 && !endpoint.includes('/token')) { this.logout(); }
-        return response;
-    }
-};
-
-// ----------------------------------------------------
-// Core Functions
-// ----------------------------------------------------
-function toggleBatchMode() {
-    isBatchMode = !isBatchMode;
-    selectedIds.clear();
-    const toolbar = document.getElementById('batch-toolbar');
-    const btn = document.getElementById('toggle-batch-btn');
-    if (toolbar) toolbar.classList.toggle('show', isBatchMode);
-    if (toolbar) toolbar.style.display = isBatchMode ? 'flex' : 'none';
-    if (btn) btn.classList.toggle('text-x-blue', isBatchMode);
-    updateBatchCount();
-    renderBookmarks(allBookmarks, totalBookmarks, false);
-}
-
-window.toggleBatchMode = toggleBatchMode;
-
-function toggleViewMode() {
-    isGalleryMode = !isGalleryMode;
-    const btn = document.getElementById('toggle-gallery-btn');
-    if (btn) btn.classList.toggle('text-x-blue', isGalleryMode);
-    applySettings();
-    renderBookmarks(allBookmarks, totalBookmarks, false);
-}
-window.toggleViewMode = toggleViewMode;
-
-function updateBatchCount() {
-    const countEl = document.getElementById('selected-count');
-    if (countEl) countEl.innerText = `${selectedIds.size} ${t('selected_items')}`;
-}
-
-async function syncBookmark(id, buttonEl = null) {
-    if (buttonEl) { buttonEl.disabled = true; buttonEl.classList.add('animate-spin'); }
     try {
-        const res = await Auth.request(`/bookmarks/${id}/sync`, { method: 'POST' });
-        if (res.ok) {
-            showToast(appSettings.lang === 'ja' ? "同期完了" : "Synced");
-            const updated = await res.json();
-            const idx = allBookmarks.findIndex(b => b.id === id);
-            if (idx !== -1) {
-                allBookmarks[idx] = updated;
-                renderBookmarks(allBookmarks, totalBookmarks, false);
-            }
-        }
-    } catch (e) { showToast("Sync failed", "error"); }
-    finally { if (buttonEl) { buttonEl.disabled = false; buttonEl.classList.remove('animate-spin'); } }
-}
+        let url = `/bookmarks?skip=${skip}&limit=${state.PAGE_SIZE}`;
+        if (state.currentFilter.type === 'category') url += `&category=${encodeURIComponent(state.currentFilter.value)}`;
+        if (state.currentFilter.type === 'month') url += `&month=${state.currentFilter.value}`;
 
-async function deleteBookmark(id) {
-    if (!confirm(appSettings.lang === 'ja' ? 'このブックマークを削除しますか？' : 'Delete this bookmark?')) return;
-    try {
-        const res = await Auth.request(`/bookmarks/${id}`, { method: 'DELETE' });
-        if (res.ok) {
-            showToast(appSettings.lang === 'ja' ? "削除しました" : "Deleted");
-            allBookmarks = allBookmarks.filter(b => b.id !== id);
-            totalBookmarks--;
-            renderBookmarks(allBookmarks, totalBookmarks, false);
-            fetchCategories();
-            fetchTimelineStats();
-        }
-    } catch (e) { showToast("Delete failed", "error"); }
-}
-
-window.deleteBookmark = deleteBookmark;
-window.syncBookmark = syncBookmark;
-
-async function batchDelete() {
-    if (selectedIds.size === 0) return;
-    if (!confirm(t('confirm_batch_delete'))) return;
-    const ids = Array.from(selectedIds);
-    const res = await Auth.request('/bookmarks/batch/delete', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ ids })
-    });
-    if (res.ok) {
-        showToast(appSettings.lang === 'ja' ? "一括削除完了" : "Batch Deleted");
-        allBookmarks = allBookmarks.filter(b => !selectedIds.has(b.id));
-        totalBookmarks -= selectedIds.size;
-        toggleBatchMode();
-        renderBookmarks(allBookmarks, totalBookmarks);
-        fetchTimelineStats();
-    }
-}
-
-async function batchSync() {
-    if (selectedIds.size === 0) return;
-    const ids = Array.from(selectedIds);
-    showToast(appSettings.lang === 'ja' ? "同期開始..." : "Syncing started...");
-    for (const id of ids) {
-        await Auth.request(`/bookmarks/${id}/sync`, { method: 'POST' });
-    }
-    showToast(appSettings.lang === 'ja' ? "一括同期完了" : "Batch Sync Done");
-    fetchBookmarks();
-}
-
-async function exportData(format) {
-    const res = await Auth.request(`/bookmarks/export?format=${format}`);
-    if (res.ok) {
-        if (format === 'csv') {
-            const blob = await res.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `bookmarks_${new Date().toISOString().split('T')[0]}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-        } else {
-            const data = await res.json();
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `bookmarks_${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-        }
-    }
-}
-
-window.batchDelete = batchDelete;
-window.batchSync = batchSync;
-window.exportData = exportData;
-
-// ----------------------------------------------------
-// Card Builder (Advanced)
-// ----------------------------------------------------
-function renderMedia(bm) {
-    const urlStr = bm.media_url;
-    if (!urlStr || appSettings.hideMedia) return '';
-    const urls = urlStr.split(',').filter(u => u.trim());
-    if (urls.length === 0) return '';
-
-    const isVideo = (url) => url.toLowerCase().match(/\.(mp4|mov|webm|m3u8|mpd)($|\?)/);
-
-    if (isGalleryMode) {
-        const u = urls[0];
-        if (isVideo(u)) {
-            return `<div class="media-preview-gallery relative">
-                <video src="${u}" class="w-full h-full object-cover"></video>
-                <div class="absolute inset-0 flex items-center justify-center bg-black/20">
-                    <ion-icon name="play-circle" class="text-white text-5xl opacity-80"></ion-icon>
-                </div>
-                <div class="absolute inset-0 cursor-pointer" onclick="event.stopPropagation(); window.openLightboxForBookmark(${bm.id})"></div>
-            </div>`;
-        }
-        return `<div class="media-preview-gallery"><img src="${u}" loading="lazy" onclick="event.stopPropagation(); window.openLightboxForBookmark(${bm.id})"></div>`;
-    }
-
-    let html = `<div class="media-grid" data-count="${urls.length}">`;
-    urls.forEach(u => {
-        if (isVideo(u)) {
-            html += `<div class="media-item no-click-propagation">
-                <video src="${u}" controls loop muted playsinline class="media-video" onclick="event.stopPropagation()"></video>
-            </div>`;
-        } else {
-            html += `<div class="media-item"><img src="${u}" loading="lazy" onclick="event.stopPropagation(); window.openLightbox('${u}', '${(bm.tweet_text || '').replace(/'/g, "\\'")}')"></div>`;
-        }
-    });
-    html += `</div>`;
-    return html;
-}
-
-function buildCard(bm) {
-    const wrapper = document.createElement('article');
-    wrapper.className = `tweet-card border-b border-x-border relative group cursor-pointer flex flex-col ${isGalleryMode ? 'gallery-item' : ''}`;
-    wrapper.dataset.id = bm.id;
-    
-    const bodyWrapper = document.createElement('div');
-    bodyWrapper.className = 'flex relative w-full h-full';
-
-    bodyWrapper.onclick = (e) => {
-        if (isBatchMode) {
-            const cb = wrapper.querySelector('.batch-checkbox');
-            if (cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
-            return;
-        }
-        if (isGalleryMode) {
-             window.openLightboxForBookmark(bm.id);
-             return;
-        }
-        if (!e.target.closest('button') && !e.target.closest('a') && !e.target.closest('img')) {
-            window.open(bm.url, '_blank');
-        }
-    };
-
-    if (isBatchMode) {
-        const checkArea = document.createElement('div');
-        checkArea.className = `flex flex-col items-center z-[25] ${isGalleryMode ? 'absolute top-2 left-2' : 'pl-4 pt-4'}`;
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.className = 'batch-checkbox';
-        checkbox.checked = selectedIds.has(bm.id);
-        checkbox.onclick = e => e.stopPropagation();
-        checkbox.onchange = (e) => {
-            if (e.target.checked) selectedIds.add(bm.id);
-            else selectedIds.delete(bm.id);
-            updateBatchCount();
-        };
-        checkArea.appendChild(checkbox);
-        bodyWrapper.appendChild(checkArea);
-    }
-
-    const mediaHtml = renderMedia(bm);
-    const contentArea = document.createElement('div');
-    contentArea.className = isGalleryMode ? 'w-full h-full relative' : 'flex-1 p-4 flex gap-3 min-w-0';
-
-    if (isGalleryMode) {
-        // Gallery Layout (Pinterest-style)
-        contentArea.innerHTML = `
-            ${mediaHtml || '<div class="w-full aspect-video bg-x-dark flex items-center justify-center"><ion-icon name="document-text-outline" class="text-4xl text-x-border"></ion-icon></div>'}
-            <div class="gallery-caption">
-                <div class="flex items-center gap-2 mb-2">
-                    <div class="w-6 h-6 rounded-full avatar-placeholder flex items-center justify-center text-[10px] text-white font-bold">${(bm.author_name || 'T').charAt(0).toUpperCase()}</div>
-                    <span class="font-bold text-xs truncate">${bm.author_name || 'User'}</span>
-                </div>
-                <div class="text-xs line-clamp-3 text-x-text opacity-90 mb-1">${bm.tweet_text || ''}</div>
-                <div class="text-[10px] text-x-text-muted">@${bm.author_handle || 'user'}</div>
-            </div>
-        `;
-    } else {
-        // Normal List Layout (Keep as is)
-        const avatarCol = document.createElement('div');
-        avatarCol.className = 'shrink-0 z-10';
-        avatarCol.innerHTML = `<div class="w-12 h-12 rounded-full avatar-placeholder flex items-center justify-center text-white font-bold text-lg">${(bm.author_name || 'T').charAt(0).toUpperCase()}</div>`;
-        
-        const rightCol = document.createElement('div');
-        rightCol.className = 'flex-1 min-w-0 z-10';
-        
-        const hRow = document.createElement('div');
-        hRow.className = 'flex items-center gap-1 mb-0.5 flex-wrap';
-        const authorName = bm.author_name || (bm.url.split('/')[2] || 'Tweet');
-        const targetDate = bm.tweet_created_at || bm.created_at;
-        const dateStr = new Date(targetDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-        const displayHandle = (bm.author_handle || 'user').startsWith('@') ? bm.author_handle : `@${bm.author_handle || 'user'}`;
-        hRow.innerHTML = `
-            <span class="font-bold text-[15px] hover:underline truncate max-w-[150px]">${authorName}</span>
-            <span class="text-x-text-muted text-[15px]">${displayHandle} · ${dateStr}</span>
-            ${bm.category && bm.category !== '未分類' ? `<span class="ml-auto bg-x-blue/10 text-x-blue text-[10px] px-2 py-0.5 rounded-full font-bold uppercase transition hover:bg-x-blue/20" onclick="event.stopPropagation(); window.applyCategoryFilter('${bm.category}')">${bm.category}</span>` : ''}
-        `;
-        rightCol.appendChild(hRow);
-
-        const txt = document.createElement('div');
-        txt.className = 'text-[15px] leading-normal text-x-text mt-1 break-words';
-        txt.innerText = bm.tweet_text || '';
-        rightCol.appendChild(txt);
-
-        if (bm.tags) {
-            const tagBox = document.createElement('div');
-            tagBox.className = 'flex flex-wrap gap-1 mt-2';
-            bm.tags.split(',').forEach(tag => {
-                if (!tag) return;
-                const tSpan = document.createElement('span');
-                tSpan.className = 'text-x-text-muted text-[12px] hover:text-x-blue transition cursor-pointer';
-                tSpan.innerText = `#${tag}`;
-                tSpan.onclick = (e) => {
-                    e.stopPropagation();
-                    const si = document.getElementById('search-input');
-                    if (si) { si.value = tag; si.dispatchEvent(new Event('input')); }
-                };
-                tagBox.appendChild(tSpan);
-            });
-            rightCol.appendChild(tagBox);
-        }
-        
-        if (mediaHtml) {
-            const mDiv = document.createElement('div');
-            mDiv.innerHTML = renderExternalLinks(bm.tweet_text) + mediaHtml;
-            rightCol.appendChild(mDiv);
-        } else {
-            const extLinks = renderExternalLinks(bm.tweet_text);
-            if (extLinks) {
-                const extDiv = document.createElement('div');
-                extDiv.innerHTML = extLinks;
-                rightCol.appendChild(extDiv);
-            }
-        }
-        if (bm.note_html || bm.note) {
-            const noteBox = document.createElement('div');
-            noteBox.className = 'mt-3 p-3 bg-x-dark border border-x-border rounded-xl text-[15px] prose prose-invert prose-sm max-w-none text-x-text opacity-90 markdown-body';
-            if (bm.note_html) noteBox.innerHTML = bm.note_html;
-            else noteBox.innerText = bm.note;
-            if (window.hljs) noteBox.querySelectorAll('pre code').forEach((block) => hljs.highlightElement(block));
-            rightCol.appendChild(noteBox);
-        }
-
-        // Action Buttons
-        const actionRow = document.createElement('div');
-        actionRow.className = 'flex items-center gap-6 mt-4 pt-2 border-t border-x-border/30 z-10 action-buttons-list';
-        
-        const editBtn = document.createElement('button');
-        editBtn.className = 'text-x-text-muted hover:text-x-blue flex items-center gap-1.5 transition-colors group';
-        editBtn.innerHTML = `<ion-icon name="create-outline" class="text-lg"></ion-icon><span class="text-xs group-hover:underline" data-i18n="card_edit">Edit</span>`;
-        editBtn.onclick = (e) => { e.stopPropagation(); openEditModal(bm.id); };
-        
-        const syncBtn = document.createElement('button');
-        syncBtn.className = 'text-x-text-muted hover:text-x-blue flex items-center gap-1.5 transition-colors group';
-        syncBtn.innerHTML = `<ion-icon name="sync-outline" class="text-lg"></ion-icon><span class="text-xs group-hover:underline" data-i18n="card_sync">Sync</span>`;
-        syncBtn.onclick = (e) => { e.stopPropagation(); syncBookmark(bm.id, syncBtn.querySelector('ion-icon')); };
-        
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'text-x-text-muted hover:text-red-500 flex items-center gap-1.5 transition-colors group';
-        deleteBtn.innerHTML = `<ion-icon name="trash-outline" class="text-lg"></ion-icon><span class="text-xs group-hover:underline" data-i18n="card_delete">Delete</span>`;
-        deleteBtn.onclick = (e) => { e.stopPropagation(); deleteBookmark(bm.id); };
-
-        actionRow.appendChild(editBtn);
-        actionRow.appendChild(syncBtn);
-        actionRow.appendChild(deleteBtn);
-        rightCol.appendChild(actionRow);
-
-        contentArea.appendChild(avatarCol);
-        contentArea.appendChild(rightCol);
-    }
-
-    bodyWrapper.appendChild(contentArea);
-    wrapper.appendChild(bodyWrapper);
-    return wrapper;
-}
-
-async function renderBookmarks(bookmarks, total, isSearch = false) {
-    const container = document.getElementById('tweets-container');
-    if (!container) return;
-    container.innerHTML = '';
-    
-    const loadingSpinner = document.getElementById('loading-spinner');
-    if (loadingSpinner) loadingSpinner.style.display = 'none';
-
-    if (!bookmarks.length) {
-        container.innerHTML = `<div class="py-20 text-center text-x-text-muted flex flex-col items-center gap-4"><p class="text-xl font-bold">${t('no_bookmarks')}</p></div>`;
-        return;
-    }
-    
-    // パフォーマンス改善: すべてを非同期で待ってからではなく、生成された順にDOMに追加
-    for (const bm of bookmarks) {
-        // buildCard() が同期関数になったので await は不要（もし非同期のままなら順次 append する）
-        const card = await buildCard(bm);
-        container.appendChild(card);
-    }
-}
-
-// ----------------------------------------------------
-// Data Handlers
-// ----------------------------------------------------
-async function fetchBookmarks() {
-    if (isLoading) return; isLoading = true;
-    try {
-        let url = `/bookmarks?skip=${currentPage * PAGE_SIZE}&limit=${PAGE_SIZE}`;
-        if (currentFilter.type === 'category') url += `&category=${encodeURIComponent(currentFilter.value)}`;
-        if (currentFilter.type === 'month') url += `&month=${encodeURIComponent(currentFilter.value)}`;
-        
         const res = await Auth.request(url);
-        const data = await res.json();
-        totalBookmarks = data.total;
-        allBookmarks = currentPage === 0 ? data.bookmarks : [...allBookmarks, ...data.bookmarks];
-        renderBookmarks(allBookmarks, totalBookmarks);
-        fetchTimelineStats();
-        fetchCategories();
-    } finally { isLoading = false; }
-}
-
-async function fetchCategories() {
-    try {
-        const res = await Auth.request('/bookmarks/categories');
-        const data = await res.json();
-        const box = document.getElementById('categories-list');
-        if (!box) return;
-        box.innerHTML = data.map(cat => `
-            <div class="flex justify-between items-center py-2 px-3 hover:bg-x-dark rounded-lg cursor-pointer transition text-[15px] ${currentFilter.type === 'category' && currentFilter.value === cat.name ? 'text-x-blue bg-x-dark/50' : ''}" 
-                 onclick="applyCategoryFilter('${cat.name}')">
-                <span class="font-medium">${cat.name}</span>
-                <span class="bg-x-border px-2 py-0.5 rounded-full text-[10px]">${cat.count}</span>
-            </div>
-        `).join('');
-    } catch(e){}
-}
-
-window.applyCategoryFilter = (cat) => {
-    if (currentFilter.type === 'category' && currentFilter.value === cat) {
-        currentFilter = { type: null, value: null };
-    } else {
-        currentFilter = { type: 'category', value: cat };
-    }
-    currentPage = 0;
-    fetchBookmarks();
-};
-
-async function fetchTimelineStats() {
-    try {
-        const res = await Auth.request('/bookmarks/stats/timeline');
-        const data = await res.json();
-        const box = document.getElementById('timeline-list');
-        if (!box) return;
-        box.innerHTML = data.map(item => `
-            <div class="flex justify-between items-center py-2 px-3 hover:bg-x-dark rounded-lg cursor-pointer transition text-sm ${currentFilter.type === 'month' && currentFilter.value === item.month ? 'text-x-blue bg-x-dark/50' : ''}" 
-                 onclick="applyMonthFilter('${item.month}')">
-                <span class="font-medium">${item.month}</span>
-                <span class="bg-x-border px-2 py-0.5 rounded-full text-[10px]">${item.count}</span>
-            </div>
-        `).join('');
-    } catch(e){}
-}
-
-window.applyMonthFilter = (month) => {
-    if (currentFilter.type === 'month' && currentFilter.value === month) {
-        currentFilter = { type: null, value: null };
-    } else {
-        currentFilter = { type: 'month', value: month };
-    }
-    currentPage = 0;
-    fetchBookmarks();
-};
-
-window.batchLink = async () => {
-    if (selectedIds.size < 2) {
-        showToast(t('select_at_least_two'), 'error');
-        return;
-    }
-    const res = await Auth.request('/bookmarks/batch/link', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ ids: Array.from(selectedIds) })
-    });
-    if (res.ok) {
-        showToast(t('bookmarks_linked'), 'success');
-        toggleBatchMode();
-        fetchBookmarks();
-    }
-};
-
-// ----------------------------------------------------
-// Init & Modals
-// ----------------------------------------------------
-window.openModal = () => {
-    const urlEl = document.getElementById('url');
-    if (urlEl) urlEl.value = '';
-    document.getElementById('bookmark-modal')?.classList.remove('hidden');
-};
-window.closeModal = () => {
-    document.getElementById('bookmark-modal')?.classList.add('hidden');
-};
-
-window.openSettingsModal = () => {
-    const s = appSettings;
-    const ids = {
-        'set-lang': s.lang, 'set-theme': s.theme || 'lights-out',
-        'set-blur': s.blurMode, 'set-media': s.hideMedia,
-        'set-thread': s.showThread, 'set-autofetch': s.autoFetch,
-        'set-toolsexp': s.showExport, 'set-toolsbml': s.showBookmarklet
-    };
-    for (const [id, val] of Object.entries(ids)) {
-        const el = document.getElementById(id);
-        if (!el) continue;
-        if (el.type === 'checkbox') el.checked = val;
-        else el.value = val;
-    }
-    document.getElementById('settings-modal')?.classList.remove('hidden');
-};
-
-window.closeSettingsModal = () => {
-    const s = appSettings;
-    const mapping = {
-        'set-lang': 'lang', 'set-theme': 'theme',
-        'set-blur': 'blurMode', 'set-media': 'hideMedia',
-        'set-thread': 'showThread', 'set-autofetch': 'autoFetch',
-        'set-toolsexp': 'showExport', 'set-toolsbml': 'showBookmarklet'
-    };
-    for (const [id, key] of Object.entries(mapping)) {
-        const el = document.getElementById(id);
-        if (!el) continue;
-        s[key] = el.type === 'checkbox' ? el.checked : el.value;
-    }
-    saveSettings();
-    if (window.location.pathname === '/') fetchBookmarks();
-    document.getElementById('settings-modal')?.classList.add('hidden');
-};
-
-window.openEditModal = (id) => {
-    const bm = allBookmarks.find(b => b.id === id);
-    if (!bm) return;
-    const modal = document.getElementById('edit-modal');
-    if (!modal) return;
-    modal.dataset.id = id;
-    const catEl = document.getElementById('edit-category');
-    const tagEl = document.getElementById('edit-tags');
-    const noteEl = document.getElementById('edit-note');
-    if (catEl) catEl.value = bm.category || '';
-    if (tagEl) tagEl.value = bm.tags || '';
-    if (noteEl) noteEl.value = bm.note || '';
-    modal.classList.remove('hidden');
-};
-
-// ----------------------------------------------------
-// Lightbox Implementation
-// ----------------------------------------------------
-let lightboxQueue = [];
-let currentIndex = -1;
-
-window.openLightbox = (url, caption = "") => {
-    const modal = document.getElementById('lightbox-modal');
-    const img = document.getElementById('lightbox-img');
-    const cap = document.getElementById('lightbox-caption');
-    if (!modal || !img) return;
-
-    img.src = url;
-    if (cap) {
-        if (caption) {
-            cap.innerText = caption;
-            cap.classList.remove('hidden');
-        } else {
-            cap.classList.add('hidden');
-        }
-    }
-
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    setTimeout(() => {
-        modal.classList.add('show');
-        modal.classList.remove('opacity-0');
-        modal.classList.add('opacity-100');
-        modal.classList.remove('pointer-events-none');
-    }, 10);
-    
-    // Update queue for sliding (get all images in current stream)
-    updateLightboxQueue(url);
-};
-
-window.openLightboxForBookmark = (id) => {
-    const bm = allBookmarks.find(b => b.id === id);
-    if (!bm || !bm.media_url) return;
-    const firstImg = bm.media_url.split(',')[0];
-    window.openLightbox(firstImg, bm.tweet_text);
-};
-
-function updateLightboxQueue(currentUrl) {
-    lightboxQueue = [];
-    allBookmarks.forEach(bm => {
-        if (bm.media_url) {
-            bm.media_url.split(',').forEach(u => {
-                if (u.trim()) lightboxQueue.push({ url: u.trim(), caption: bm.tweet_text });
-            });
-        }
-    });
-    currentIndex = lightboxQueue.findIndex(item => item.url === currentUrl);
-    updateLightboxButtons();
-}
-
-function updateLightboxButtons() {
-    const p = document.getElementById('lightbox-prev');
-    const n = document.getElementById('lightbox-next');
-    if (p) p.style.visibility = currentIndex > 0 ? 'visible' : 'hidden';
-    if (n) n.style.visibility = currentIndex < lightboxQueue.length - 1 ? 'visible' : 'hidden';
-}
-
-window.closeLightbox = () => {
-    const modal = document.getElementById('lightbox-modal');
-    if (!modal) return;
-    modal.classList.remove('show');
-    modal.classList.add('opacity-0');
-    modal.classList.remove('opacity-100');
-    modal.classList.add('pointer-events-none');
-    setTimeout(() => modal.classList.add('hidden'), 300);
-};
-
-window.prevLightbox = () => {
-    if (currentIndex > 0) {
-        currentIndex--;
-        const item = lightboxQueue[currentIndex];
-        const img = document.getElementById('lightbox-img');
-        const cap = document.getElementById('lightbox-caption');
-        img.style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            img.src = item.url;
-            if (cap) cap.innerText = item.caption || "";
-            img.style.transform = 'scale(1)';
-            updateLightboxButtons();
-        }, 150);
-    }
-};
-
-window.nextLightbox = () => {
-    if (currentIndex < lightboxQueue.length - 1) {
-        currentIndex++;
-        const item = lightboxQueue[currentIndex];
-        const img = document.getElementById('lightbox-img');
-        const cap = document.getElementById('lightbox-caption');
-        img.style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            img.src = item.url;
-            if (cap) cap.innerText = item.caption || "";
-            img.style.transform = 'scale(1)';
-            updateLightboxButtons();
-        }, 150);
-    }
-};
-
-window.closeEditModal = () => {
-    document.getElementById('edit-modal')?.classList.add('hidden');
-};
-
-async function handleEditSubmit(e) {
-    e.preventDefault();
-    const modal = document.getElementById('edit-modal');
-    // 数値として確実に取得
-    const id = parseInt(modal.dataset.id, 10);
-    
-    if (!id || isNaN(id)) {
-        showToast("Error: Invalid Bookmark ID", "error");
-        console.error("Invalid ID in modal dataset:", modal.dataset.id);
-        return;
-    }
-
-    const data = {
-        category: document.getElementById('edit-category').value,
-        tags: document.getElementById('edit-tags').value,
-        note: document.getElementById('edit-note').value
-    };
-
-    const updateBtn = document.getElementById('update-btn');
-    if (updateBtn) { updateBtn.disabled = true; updateBtn.innerText = "..."; }
-
-    try {
-        const res = await Auth.request(`/bookmarks/${id}`, {
-            method: 'PATCH',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(data)
-        });
-        
         if (res.ok) {
-            showToast(appSettings.lang === 'ja' ? "更新しました" : "Updated");
-            window.closeEditModal();
-            fetchBookmarks();
-            fetchCategories(); 
-        } else {
-            const errData = await res.json();
-            showToast(`Update failed: ${errData.detail || 'Status ' + res.status}`, "error");
+            const data = await res.json();
+            state.totalBookmarks = data.total;
+            if (append) state.allBookmarks = [...state.allBookmarks, ...data.bookmarks];
+            else state.allBookmarks = data.bookmarks;
+            
+            renderBookmarks(state.allBookmarks, state.totalBookmarks, append);
         }
     } catch (err) {
-        console.error('[Update Error]', err);
-        showToast(`Network error: ${err.message}`, "error");
+        console.error('[App] Fetch error:', err);
+        showToast(t('error_fetch'), 'error');
     } finally {
-        if (updateBtn) { updateBtn.disabled = false; updateBtn.innerText = t('btn_update'); }
+        state.isLoading = false;
+        if (spinner) spinner.classList.add('hidden');
     }
 }
+
+function renderBookmarks(bookmarks, total, append = false) {
+    const container = document.getElementById('tweets-container');
+    if (!container) return;
+    if (!append) container.innerHTML = '';
+
+    if (bookmarks.length === 0 && !append) {
+        container.innerHTML = `<div class="py-20 text-center text-x-text-muted"><ion-icon name="bookmarks-outline" class="text-6xl mb-4 opacity-20"></ion-icon><p>${t('no_bookmarks')}</p></div>`;
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    bookmarks.slice(append ? state.allBookmarks.length - bookmarks.length : 0).forEach(bm => {
+        fragment.appendChild(buildCard(bm));
+    });
+    container.appendChild(fragment);
+
+    // Update load more button
+    const loadMoreBtn = document.getElementById('load-more-container');
+    if (loadMoreBtn) {
+        loadMoreBtn.classList.toggle('hidden', state.allBookmarks.length >= total);
+    }
+}
+
+// --- Interaction Handlers ---
+
+window.toggleBatchMode = () => {
+    state.isBatchMode = !state.isBatchMode;
+    state.selectedIds.clear();
+    const toolbar = document.getElementById('batch-toolbar');
+    const btn = document.getElementById('toggle-batch-btn');
+    if (toolbar) toolbar.classList.toggle('show', state.isBatchMode);
+    if (toolbar) toolbar.style.display = state.isBatchMode ? 'flex' : 'none';
+    if (btn) btn.classList.toggle('text-x-blue', state.isBatchMode);
+    document.getElementById('selected-count').innerText = `0 ${t('selected_items')}`;
+    renderBookmarks(state.allBookmarks, state.totalBookmarks, false);
+};
+
+window.toggleViewMode = () => {
+    state.isGalleryMode = !state.isGalleryMode;
+    const btn = document.getElementById('toggle-gallery-btn');
+    if (btn) btn.classList.toggle('text-x-blue', state.isGalleryMode);
+    applySettings();
+    renderBookmarks(state.allBookmarks, state.totalBookmarks, false);
+};
+
+window.toggleSelect = (id, el) => {
+    if (state.selectedIds.has(id)) {
+        state.selectedIds.delete(id);
+        el.classList.remove('selected');
+    } else {
+        state.selectedIds.add(id);
+        el.classList.add('selected');
+    }
+    document.getElementById('selected-count').innerText = `${state.selectedIds.size} ${t('selected_items')}`;
+};
+
+// --- Initialization ---
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 共通初期化
+    const token = Auth.getToken();
+    if (!token && window.location.pathname !== '/login') {
+        window.location.href = '/login';
+        return;
+    }
+
     applySettings();
-    
-    // ブックマークレット URL の動的生成
-    const bmlBtn = document.getElementById('bookmarklet-btn');
-    if (bmlBtn) {
-        const origin = window.location.origin;
-        bmlBtn.href = `javascript:(function(){window.open('${origin}/?quick_save='+encodeURIComponent(location.href),'_blank','width=600,height=500');})();`;
-    }
+    fetchBookmarks();
+    refreshSidebar();
 
-    // パスに関わらずユーザー情報を取得 (トークンがある場合のみ)
-    if (Auth.getToken()) {
-        Auth.request('/users/me').then(r => r.json()).then(user => {
-            if (user.username) {
-                const elements = [
-                    'user-display-name', 'username-handle', 
-                    'profile-name', 'profile-handle', 'header-name'
-                ];
-                elements.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.innerText = id.includes('handle') ? user.username.toLowerCase() : user.username;
-                });
+    // Event Listeners
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(async (e) => {
+            const q = e.target.value.trim();
+            if (!q) { fetchBookmarks(); return; }
+            const res = await Auth.request(`/bookmarks/search?q=${encodeURIComponent(q)}`);
+            if (res.ok) {
+                const data = await res.json();
+                state.allBookmarks = data;
+                renderBookmarks(data, data.length, false);
             }
-        }).catch(() => {});
+        }, 300));
     }
-
-    // パス判定に基づいた初期化（Homeページのみ）
-    const isHome = window.location.pathname === '/' || window.location.pathname === '/index.html' || (window.location.origin + window.location.pathname === API_BASE + '/');
-    
-    if (isHome) {
-        if (!Auth.getToken()) {
-            window.location.href = '/login';
-            return;
-        }
-        fetchBookmarks();
-    }
-
-    // 検索イベント
-    document.getElementById('search-input')?.addEventListener('input', (e) => {
-        const q = e.target.value.trim();
-        currentPage = 0;
-        if (q) {
-            Auth.request(`/bookmarks/search?q=${encodeURIComponent(q)}`).then(r => r.json()).then(d => {
-                allBookmarks = d;
-                renderBookmarks(allBookmarks, d.length, true);
-            });
-        } else { fetchBookmarks(); }
-    });
-
-    // 保存フォーム
-    document.getElementById('add-bookmark-form')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const data = {
-            url: document.getElementById('url').value,
-            category: document.getElementById('category').value || '未分類',
-            tags: document.getElementById('tags').value,
-            note: document.getElementById('note').value
-        };
-        const btn = e.target.querySelector('button[type="submit"]');
-        btn.disabled = true; btn.innerText = "...";
-        try {
-            const res = await Auth.request('/bookmarks?auto_fetch=true&fetch_thread=true', { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify(data)
-            });
-            if (res.ok) { 
-                showToast(appSettings.lang === 'ja' ? "保存しました" : "Saved");
-                window.closeModal(); 
-                fetchBookmarks(); 
-                fetchTimelineStats();
-                fetchCategories();
-            } else {
-                const err = await res.json();
-                showToast(`Save failed: ${err.detail || 'Error'}`, "error");
-            }
-        } catch (e) { showToast("Network error", "error"); }
-        finally { btn.disabled = false; btn.innerText = t('btn_save'); }
-    });
-
-    // 編集フォーム (新しく分離した関数を呼び出す)
-    document.getElementById('edit-bookmark-form')?.addEventListener('submit', handleEditSubmit);
-
-    // ログアウト
-    document.getElementById('logout-btn')?.addEventListener('click', () => Auth.logout());
-
-    // Lightbox Events
-    document.getElementById('lightbox-prev')?.addEventListener('click', (e) => { e.stopPropagation(); window.prevLightbox(); });
-    document.getElementById('lightbox-next')?.addEventListener('click', (e) => { e.stopPropagation(); window.nextLightbox(); });
-    
-    document.addEventListener('keydown', (e) => {
-        const modal = document.getElementById('lightbox-modal');
-        if (modal && !modal.classList.contains('hidden')) {
-            if (e.key === 'Escape') closeLightbox();
-            if (e.key === 'ArrowLeft') prevLightbox();
-            if (e.key === 'ArrowRight') nextLightbox();
-        }
-    });
 });
 
-// Helper to render YouTube or external links
-function renderExternalLinks(text) {
-    if (!text) return '';
-    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-    const ytMatch = text.match(youtubeRegex);
-
-    if (ytMatch) {
-        const videoId = ytMatch[1];
-        const thumbUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-        const linkUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        return `
-            <div class="external-link-card cursor-pointer mb-3" onclick="event.stopPropagation(); window.open('${linkUrl}', '_blank')">
-                <div class="link-thumb relative">
-                    <img src="${thumbUrl}" class="w-full h-full object-cover">
-                    <div class="absolute inset-0 flex items-center justify-center">
-                        <div class="bg-red-600 text-white p-2 rounded-xl flex items-center shadow-lg">
-                            <ion-icon name="logo-youtube" class="text-3xl"></ion-icon>
-                        </div>
-                    </div>
-                </div>
-                <div class="link-info">
-                    <div class="text-x-text font-bold text-sm truncate">YouTube Video</div>
-                    <div class="text-x-text-muted text-xs truncate">${linkUrl}</div>
-                </div>
-            </div>
-        `;
-    }
-    return '';
+// Helper: Debounce
+function debounce(fn, delay) {
+    let timeout;
+    return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => fn(...args), delay);
+    };
 }
+
+async function refreshSidebar() {
+    const catList = document.getElementById('categories-list');
+    const timeList = document.getElementById('timeline-list');
+    
+    // Categories
+    const cRes = await Auth.request('/bookmarks/categories');
+    if (cRes.ok && catList) {
+        const cats = await cRes.json();
+        catList.innerHTML = cats.map(c => `<button onclick="window.applyCategoryFilter('${c.name}')" class="w-full text-left px-4 py-2 hover:bg-x-dark rounded-xl flex items-center justify-between group transition-colors"><span class="truncate">${c.name}</span><span class="text-x-text-muted text-xs group-hover:text-x-blue">${c.count}</span></button>`).join('');
+    }
+
+    // Timeline
+    const tRes = await Auth.request('/bookmarks/stats/timeline');
+    if (tRes.ok && timeList) {
+        const months = await tRes.json();
+        timeList.innerHTML = months.map(m => `<button onclick="window.applyMonthFilter('${m.month}')" class="w-full text-left px-4 py-2 hover:bg-x-dark rounded-xl flex items-center justify-between group transition-colors"><span>${m.month}</span><span class="text-x-text-muted text-xs group-hover:text-x-blue">${m.count}</span></button>`).join('');
+    }
+}
+
+// Final Exports to Window
+window.applyCategoryFilter = (cat) => { state.currentFilter = {type: 'category', value: cat}; fetchBookmarks(); };
+window.applyMonthFilter = (m) => { state.currentFilter = {type: 'month', value: m}; fetchBookmarks(); };
+window.loadMore = () => fetchBookmarks(state.allBookmarks.length, true);
+window.syncBookmark = async (id, iconEl) => {
+    if (iconEl) iconEl.classList.add('animate-spin');
+    const res = await Auth.request(`/bookmarks/${id}/sync`, { method: 'POST' });
+    if (res.ok) {
+        showToast(t('sync_success') || 'Synced!');
+        fetchBookmarks(0, false);
+    }
+    if (iconEl) iconEl.classList.remove('animate-spin');
+};
+
+// Settings Modal
+window.openSettingsModal = () => {
+    const modal = document.getElementById('settings-modal');
+    if (modal) {
+        document.getElementById('set-compact').checked = state.appSettings.compactMode;
+        document.getElementById('set-blur').checked = state.appSettings.blurMode;
+        document.getElementById('set-media').checked = state.appSettings.hideMedia;
+        document.getElementById('set-thread').checked = state.appSettings.showThread;
+        document.getElementById('set-autofetch').checked = state.appSettings.autoFetch;
+        document.getElementById('set-toolsexp').checked = state.appSettings.showExport;
+        document.getElementById('set-toolsbml').checked = state.appSettings.showBookmarklet;
+        document.getElementById('set-lang').value = state.appSettings.lang;
+        document.getElementById('set-theme').value = state.appSettings.theme;
+        modal.classList.remove('hidden');
+    }
+};
+
+window.closeSettingsModal = () => document.getElementById('settings-modal').classList.add('hidden');
+
+window.updateSettings = (key, val) => {
+    state.appSettings[key] = val;
+    saveSettings();
+    applySettings();
+};
