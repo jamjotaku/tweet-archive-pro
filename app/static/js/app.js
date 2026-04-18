@@ -306,14 +306,31 @@ function renderMedia(bm) {
     const urls = urlStr.split(',').filter(u => u.trim());
     if (urls.length === 0) return '';
 
+    const isVideo = (url) => url.toLowerCase().match(/\.(mp4|mov|webm|m3u8|mpd)($|\?)/);
+
     if (isGalleryMode) {
-        // Gallery mode: just return the first image as a simplified item
-        return `<div class="media-preview-gallery"><img src="${urls[0]}" loading="lazy" onclick="event.stopPropagation(); window.openLightboxForBookmark(${bm.id})"></div>`;
+        const u = urls[0];
+        if (isVideo(u)) {
+            return `<div class="media-preview-gallery relative">
+                <video src="${u}" class="w-full h-full object-cover"></video>
+                <div class="absolute inset-0 flex items-center justify-center bg-black/20">
+                    <ion-icon name="play-circle" class="text-white text-5xl opacity-80"></ion-icon>
+                </div>
+                <div class="absolute inset-0 cursor-pointer" onclick="event.stopPropagation(); window.openLightboxForBookmark(${bm.id})"></div>
+            </div>`;
+        }
+        return `<div class="media-preview-gallery"><img src="${u}" loading="lazy" onclick="event.stopPropagation(); window.openLightboxForBookmark(${bm.id})"></div>`;
     }
 
     let html = `<div class="media-grid" data-count="${urls.length}">`;
     urls.forEach(u => {
-        html += `<div class="media-item"><img src="${u}" loading="lazy" onclick="event.stopPropagation(); window.openLightbox('${u}', '${(bm.tweet_text || '').replace(/'/g, "\\'")}')"></div>`;
+        if (isVideo(u)) {
+            html += `<div class="media-item no-click-propagation">
+                <video src="${u}" controls loop muted playsinline class="media-video" onclick="event.stopPropagation()"></video>
+            </div>`;
+        } else {
+            html += `<div class="media-item"><img src="${u}" loading="lazy" onclick="event.stopPropagation(); window.openLightbox('${u}', '${(bm.tweet_text || '').replace(/'/g, "\\'")}')"></div>`;
+        }
     });
     html += `</div>`;
     return html;
@@ -423,8 +440,15 @@ function buildCard(bm) {
         
         if (mediaHtml) {
             const mDiv = document.createElement('div');
-            mDiv.innerHTML = mediaHtml;
+            mDiv.innerHTML = renderExternalLinks(bm.tweet_text) + mediaHtml;
             rightCol.appendChild(mDiv);
+        } else {
+            const extLinks = renderExternalLinks(bm.tweet_text);
+            if (extLinks) {
+                const extDiv = document.createElement('div');
+                extDiv.innerHTML = extLinks;
+                rightCol.appendChild(extDiv);
+            }
         }
         if (bm.note_html || bm.note) {
             const noteBox = document.createElement('div');
@@ -893,3 +917,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+// Helper to render YouTube or external links
+function renderExternalLinks(text) {
+    if (!text) return '';
+    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+    const ytMatch = text.match(youtubeRegex);
+
+    if (ytMatch) {
+        const videoId = ytMatch[1];
+        const thumbUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+        const linkUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        return `
+            <div class="external-link-card cursor-pointer mb-3" onclick="event.stopPropagation(); window.open('${linkUrl}', '_blank')">
+                <div class="link-thumb relative">
+                    <img src="${thumbUrl}" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <div class="bg-red-600 text-white p-2 rounded-xl flex items-center shadow-lg">
+                            <ion-icon name="logo-youtube" class="text-3xl"></ion-icon>
+                        </div>
+                    </div>
+                </div>
+                <div class="link-info">
+                    <div class="text-x-text font-bold text-sm truncate">YouTube Video</div>
+                    <div class="text-x-text-muted text-xs truncate">${linkUrl}</div>
+                </div>
+            </div>
+        `;
+    }
+    return '';
+}
